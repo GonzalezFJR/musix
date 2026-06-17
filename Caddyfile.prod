@@ -1,0 +1,13 @@
+# Caddy interno para despliegue tras un edge (nginx en la EC2 hace TLS).
+# Sirve la SPA y enruta /api/* al backend, todo por HTTP en :80 (sin ACME).
+:80 {
+	encode gzip zstd
+
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		reverse_proxy web:80
+	}
+}

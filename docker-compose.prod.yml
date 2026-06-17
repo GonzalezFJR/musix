@@ -1,0 +1,51 @@
+# Despliegue de producción detrás de un edge (nginx + certbot en la EC2, vía
+# tailscale). NO usa DynamoDB Local ni TLS propio: habla con AWS real (DynamoDB +
+# S3) y expone un único puerto HTTP (8088) que el nginx de la EC2 proxya a
+# https://mu6.es. Las variables sensibles van en .env (no versionado).
+#
+# Uso en minibox:
+#   docker compose -f docker-compose.prod.yml up -d --build
+services:
+  api:
+    build:
+      context: ./apps/api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Forzar AWS real (ignorar cualquier endpoint local que hubiera en .env).
+      DYNAMODB_ENDPOINT_URL: ""
+      SOUNDBANKS_DIR: /soundbanks
+    volumes:
+      - file-data:/data/files
+      - soundbanks-data:/soundbanks
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: ./apps/web
+    restart: unless-stopped
+    depends_on:
+      - api
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "8088:80"
+    volumes:
+      - ./Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+      - web
+
+volumes:
+  file-data:
+  soundbanks-data:
+  caddy-data:
+  caddy-config:
