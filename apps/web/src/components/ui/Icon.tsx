@@ -45,7 +45,10 @@ export type IconName =
   | "keySignature"
   | "meter"
   | "scale"
-  | "circle";
+  | "circle"
+  | "logout"
+  | "folderPlus"
+  | "shield";
 
 const P = {
   fill: "none",
@@ -284,6 +287,28 @@ const PATHS: Record<IconName, React.ReactNode> = {
       <circle cx="12" cy="12" r="8.5" />
       <path d="M12 3.5v4M12 16.5v4M3.5 12h4M16.5 12h4" />
       <circle cx="12" cy="12" r="2" {...FILLED} />
+    </g>
+  ),
+  // Salir: panel a la izquierda + flecha saliendo a la derecha.
+  logout: (
+    <g {...P}>
+      <path d="M9 4H6a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h3" />
+      <path d="M14 8l4 4-4 4" />
+      <path d="M18 12H9" />
+    </g>
+  ),
+  // Carpeta con "+": nueva carpeta.
+  folderPlus: (
+    <g {...P}>
+      <path d="M4 7a1 1 0 0 1 1-1h3.5l2 2H19a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7Z" />
+      <path d="M12 11.5v5M9.5 14h5" />
+    </g>
+  ),
+  // Escudo con check: administración.
+  shield: (
+    <g {...P}>
+      <path d="M12 3l7 3v5c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6l7-3Z" />
+      <path d="M9 12l2 2 4-4" />
     </g>
   ),
 };

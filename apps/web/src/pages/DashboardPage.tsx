@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../auth/AuthContext";
-import Logo from "../components/ui/Logo";
+import NewProjectModal from "../components/NewProjectModal";
+import Icon from "../components/ui/Icon";
+import Tooltip from "../components/ui/Tooltip";
 import { api, type Folder, type ProjectSummary } from "../lib/api";
 
 const DRAG_KEY = "application/x-musix-project";
@@ -14,9 +16,8 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentFolder, setCurrentFolder] = useState<string | null>(null);
-  const [newTitle, setNewTitle] = useState("");
-  const [creating, setCreating] = useState(false);
   const [dropTarget, setDropTarget] = useState<string | "root" | null>(null);
+  const [newProjectOpen, setNewProjectOpen] = useState(false);
 
   async function refresh() {
     const [f, p] = await Promise.all([api.listFolders(), api.listProjects()]);
@@ -56,18 +57,6 @@ export default function DashboardPage() {
     }
     return path;
   }, [currentFolder, folders]);
-
-  async function createProject(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newTitle.trim()) return;
-    setCreating(true);
-    try {
-      const p = await api.createProject(newTitle.trim(), "", currentFolder);
-      navigate(`/projects/${p.id}`);
-    } finally {
-      setCreating(false);
-    }
-  }
 
   async function createFolder() {
     const name = window.prompt("Nombre de la carpeta:");
@@ -172,56 +161,68 @@ export default function DashboardPage() {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Barra superior: logo + nuevo proyecto + cuenta. Fuera del panel de proyectos. */}
+      {/* Barra superior: marca + acciones + cuenta. */}
       <header className="flex flex-wrap items-center gap-3 border-b border-ink-700 bg-ink-800 px-6 py-3">
-        <h1 className="flex items-center gap-2 text-lg font-bold text-white">
-          <Logo className="h-7 w-auto" />
-          <span>
-            Mu<span className="text-accent">six</span>
-          </span>
-        </h1>
-        <form onSubmit={createProject} className="ml-2 flex flex-1 items-center gap-2 sm:max-w-md">
-          <input
-            className="input"
-            placeholder="Título del nuevo proyecto…"
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-          />
-          <button className="btn-primary whitespace-nowrap" disabled={creating || !newTitle.trim()}>
-            + Nuevo proyecto
+        <Link to="/landing" className="text-lg font-bold text-white transition-opacity hover:opacity-80">
+          Mu<span className="text-accent">six</span>
+        </Link>
+
+        <div className="ml-2 flex items-center gap-2">
+          <button
+            className="flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-ink-900 shadow-sm transition-colors hover:bg-accent-soft"
+            onClick={() => setNewProjectOpen(true)}
+          >
+            <Icon name="plus" size={16} /> Nuevo proyecto
           </button>
-        </form>
-        <div className="flex items-center gap-3 text-sm text-slate-400">
-          <Link to="/settings" className="hover:text-accent">
-            Ajustes
-          </Link>
+          <button
+            className="flex items-center gap-2 rounded-full bg-ink-700 px-4 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-ink-600"
+            onClick={createFolder}
+          >
+            <Icon name="folderPlus" size={16} /> Nueva carpeta
+          </button>
+        </div>
+
+        <div className="ml-auto flex items-center gap-1">
           {user?.role === "admin" && (
-            <>
-              <Link to="/adminpanel" className="hover:text-accent">
-                Admin
+            <Tooltip label="Panel de administración" side="bottom">
+              <Link
+                to="/adminpanel"
+                aria-label="Panel de administración"
+                className="flex h-9 w-9 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-ink-700 hover:text-accent"
+              >
+                <Icon name="shield" size={18} />
               </Link>
-              <Link to="/docs" className="hover:text-accent">
-                Docs
-              </Link>
-            </>
+            </Tooltip>
           )}
-          <span className="hidden sm:inline">{user?.display_name}</span>
-          <button className="btn-ghost" onClick={logout}>
-            Salir
-          </button>
+          <Tooltip label="Ajustes" side="bottom">
+            <Link
+              to="/settings"
+              aria-label="Ajustes"
+              className="flex h-9 w-9 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-ink-700 hover:text-accent"
+            >
+              <Icon name="settings" size={18} />
+            </Link>
+          </Tooltip>
+          <span className="ml-3 hidden font-medium text-slate-200 sm:inline">{user?.display_name}</span>
+          <Tooltip label="Salir" side="bottom">
+            <button
+              onClick={logout}
+              aria-label="Salir"
+              className="ml-1 flex h-9 w-9 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-ink-700 hover:text-red-400"
+            >
+              <Icon name="logout" size={18} />
+            </button>
+          </Tooltip>
         </div>
       </header>
 
       <div className="flex min-h-0 flex-1">
         {/* Barra lateral: árbol de carpetas. */}
         <aside className="w-60 shrink-0 overflow-auto border-r border-ink-700 bg-ink-800/50 p-3">
-          <div className="mb-2 flex items-center justify-between">
+          <div className="mb-2">
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Carpetas
             </span>
-            <button className="text-xs text-accent hover:underline" onClick={createFolder}>
-              + Carpeta
-            </button>
           </div>
           <div
             className={`mb-1 cursor-pointer rounded-md px-2 py-1 text-sm transition-colors ${
@@ -319,6 +320,13 @@ export default function DashboardPage() {
           )}
         </main>
       </div>
+
+      <NewProjectModal
+        open={newProjectOpen}
+        onClose={() => setNewProjectOpen(false)}
+        folderId={currentFolder}
+        onCreated={(id) => navigate(`/projects/${id}`)}
+      />
     </div>
   );
 }
