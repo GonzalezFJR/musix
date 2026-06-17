@@ -55,14 +55,14 @@ def _musescore_meta(data: bytes, ext: str) -> tuple[str | None, str | None]:
     return tags.get("workTitle") or None, tags.get("composer") or None
 
 
-def _owned(project_id: int, user_id: int, repos) -> Project:
+def _owned(project_id: str, user_id: str, repos) -> Project:
     project = repos.projects.get_owned(project_id, user_id)
     if project is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Proyecto no encontrado")
     return project
 
 
-def _validate_folder(folder_id: int, user_id: int, repos) -> None:
+def _validate_folder(folder_id: str, user_id: str, repos) -> None:
     if folder_id is not None and repos.folders.get_owned(folder_id, user_id) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Carpeta no encontrada")
 
@@ -98,14 +98,14 @@ def create_project(data: ProjectCreate, user: CurrentUser, repos: Repos) -> Proj
 
 
 @router.get("/{project_id}", response_model=ProjectRead)
-def get_project(project_id: int, user: CurrentUser, repos: Repos) -> ProjectRead:
+def get_project(project_id: str, user: CurrentUser, repos: Repos) -> ProjectRead:
     project = _owned(project_id, user.id, repos)
     return ProjectRead(**project.model_dump(), score=_load_score(project))
 
 
 @router.patch("/{project_id}", response_model=ProjectRead)
 def update_project(
-    project_id: int, data: ProjectUpdate, user: CurrentUser, repos: Repos
+    project_id: str, data: ProjectUpdate, user: CurrentUser, repos: Repos
 ) -> ProjectRead:
     project = _owned(project_id, user.id, repos)
     if data.title is not None:
@@ -131,7 +131,7 @@ def update_project(
 
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_project(project_id: int, user: CurrentUser, repos: Repos) -> None:
+def delete_project(project_id: str, user: CurrentUser, repos: Repos) -> None:
     project = _owned(project_id, user.id, repos)
     repos.projects.delete(project)
     # Limpia ficheros del proyecto en el almacenamiento.
@@ -140,7 +140,7 @@ def delete_project(project_id: int, user: CurrentUser, repos: Repos) -> None:
 
 @router.post("/{project_id}/file", response_model=ProjectRead)
 async def upload_file(
-    project_id: int, file: UploadFile, user: CurrentUser, repos: Repos
+    project_id: str, file: UploadFile, user: CurrentUser, repos: Repos
 ) -> ProjectRead:
     project = _owned(project_id, user.id, repos)
     ext = Path(file.filename or "").suffix.lower()
@@ -186,7 +186,7 @@ async def upload_file(
 
 
 @router.get("/{project_id}/file")
-def download_file(project_id: int, user: CurrentUser, repos: Repos) -> Response:
+def download_file(project_id: str, user: CurrentUser, repos: Repos) -> Response:
     project = _owned(project_id, user.id, repos)
     if not project.original_filename:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "El proyecto no tiene fichero original")

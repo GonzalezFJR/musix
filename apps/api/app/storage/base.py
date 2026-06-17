@@ -36,13 +36,13 @@ class StorageBackend(ABC):
         """True si el objeto existe."""
 
 
-def project_prefix(user_id: int, project_id: int) -> str:
+def project_prefix(user_id: str, project_id: str) -> str:
     return f"users/{user_id}/projects/{project_id}"
 
 
-def score_key(user_id: int, project_id: int) -> str:
+def score_key(user_id: str, project_id: str) -> str:
     return f"{project_prefix(user_id, project_id)}/score.mu6"
 
 
-def original_key(user_id: int, project_id: int, ext: str) -> str:
+def original_key(user_id: str, project_id: str, ext: str) -> str:
     return f"{project_prefix(user_id, project_id)}/original{ext}"

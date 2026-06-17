@@ -13,10 +13,10 @@ export default function DashboardPage() {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentFolder, setCurrentFolder] = useState<number | null>(null);
+  const [currentFolder, setCurrentFolder] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState("");
   const [creating, setCreating] = useState(false);
-  const [dropTarget, setDropTarget] = useState<number | "root" | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | "root" | null>(null);
 
   async function refresh() {
     const [f, p] = await Promise.all([api.listFolders(), api.listProjects()]);
@@ -31,7 +31,7 @@ export default function DashboardPage() {
 
   // Mapa de hijos por carpeta padre para renderizar el árbol.
   const childFolders = useMemo(() => {
-    const map = new Map<number | null, Folder[]>();
+    const map = new Map<string | null, Folder[]>();
     for (const f of folders) {
       const key = f.parent_id;
       if (!map.has(key)) map.set(key, []);
@@ -90,34 +90,34 @@ export default function DashboardPage() {
     refresh();
   }
 
-  async function removeProject(id: number) {
+  async function removeProject(id: string) {
     if (!confirm("¿Eliminar este proyecto?")) return;
     await api.deleteProject(id);
     refresh();
   }
 
-  async function moveProject(projectId: number, folderId: number | null) {
+  async function moveProject(projectId: string, folderId: string | null) {
     await api.moveProject(projectId, folderId);
     refresh();
   }
 
   // ── Drag & drop ───────────────────────────────────────────────
-  function onDragStart(e: React.DragEvent, projectId: number) {
+  function onDragStart(e: React.DragEvent, projectId: string) {
     e.dataTransfer.setData(DRAG_KEY, String(projectId));
     e.dataTransfer.effectAllowed = "move";
   }
-  function onDropTo(e: React.DragEvent, folderId: number | null) {
+  function onDropTo(e: React.DragEvent, folderId: string | null) {
     e.preventDefault();
     setDropTarget(null);
     const raw = e.dataTransfer.getData(DRAG_KEY);
-    if (raw) moveProject(Number(raw), folderId);
+    if (raw) moveProject(raw, folderId);
   }
   function allowDrop(e: React.DragEvent) {
     if (e.dataTransfer.types.includes(DRAG_KEY)) e.preventDefault();
   }
 
   // Render recursivo del árbol de carpetas en la barra lateral.
-  function FolderTree({ parentId, depth }: { parentId: number | null; depth: number }) {
+  function FolderTree({ parentId, depth }: { parentId: string | null; depth: number }) {
     const items = childFolders.get(parentId) ?? [];
     return (
       <ul className={depth > 0 ? "ml-3 border-l border-ink-600 pl-2" : ""}>

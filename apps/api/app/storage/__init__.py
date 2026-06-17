@@ -1,4 +1,8 @@
-"""Factory de almacenamiento según `settings.storage_backend`."""
+"""Factory de almacenamiento.
+
+Con S3 configurado (`S3_BUCKET_NAME`): S3 canónico + caché local (TTL de días).
+Sin S3 (desarrollo sin AWS): solo disco local (persistente).
+"""
 
 from __future__ import annotations
 
@@ -19,18 +23,19 @@ __all__ = [
 @lru_cache
 def get_storage() -> StorageBackend:
     settings = get_settings()
-    if settings.storage_backend == "s3":
-        from .s3 import S3Storage
-
-        return S3Storage(
-            bucket=settings.s3_bucket or "",
-            region=settings.s3_region,
-            endpoint_url=settings.s3_endpoint_url,
-            prefix=settings.s3_prefix,
-            access_key_id=settings.aws_access_key_id,
-            secret_access_key=settings.aws_secret_access_key,
-        )
-    # Default: disco local.
     from .local import LocalStorage
 
-    return LocalStorage(settings.files_dir)
+    cache = LocalStorage(settings.files_dir)
+    if settings.s3_enabled:
+        from .caching import CachingStorage
+        from .s3 import S3Storage
+
+        s3 = S3Storage(
+            bucket=settings.s3_bucket_name or "",
+            region=settings.aws_region,
+            access_key_id=settings.aws_access_key,
+            secret_access_key=settings.aws_secret_key,
+        )
+        return CachingStorage(s3, cache, ttl_days=settings.cache_ttl_days)
+    # Dev sin S3: disco local persistente.
+    return cache

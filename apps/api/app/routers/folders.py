@@ -7,14 +7,14 @@ from ..schemas import FolderCreate, FolderRead, FolderUpdate
 router = APIRouter(prefix="/api/folders", tags=["folders"])
 
 
-def _owned(folder_id: int, user_id: int, repos) -> Folder:
+def _owned(folder_id: str, user_id: str, repos) -> Folder:
     folder = repos.folders.get_owned(folder_id, user_id)
     if folder is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Carpeta no encontrada")
     return folder
 
 
-def _validate_parent(parent_id: int, user_id: int, repos) -> None:
+def _validate_parent(parent_id: str, user_id: str, repos) -> None:
     if parent_id is not None and repos.folders.get_owned(parent_id, user_id) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Carpeta padre no encontrada")
 
@@ -34,7 +34,7 @@ def create_folder(data: FolderCreate, user: CurrentUser, repos: Repos) -> Folder
 
 @router.patch("/{folder_id}", response_model=FolderRead)
 def update_folder(
-    folder_id: int, data: FolderUpdate, user: CurrentUser, repos: Repos
+    folder_id: str, data: FolderUpdate, user: CurrentUser, repos: Repos
 ) -> Folder:
     folder = _owned(folder_id, user.id, repos)
     if data.name is not None:
@@ -48,7 +48,7 @@ def update_folder(
 
 
 @router.delete("/{folder_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_folder(folder_id: int, user: CurrentUser, repos: Repos) -> None:
+def delete_folder(folder_id: str, user: CurrentUser, repos: Repos) -> None:
     folder = _owned(folder_id, user.id, repos)
     # Reasigna los proyectos de la carpeta a la raíz.
     repos.projects.reassign_folder(folder_id, None, user.id)

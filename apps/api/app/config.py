@@ -4,56 +4,84 @@ from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Claves de TEST de Cloudflare Turnstile (siempre pasan). Útiles en desarrollo:
+# así el flujo con captcha funciona sin claves reales. En producción se
+# sobreescriben vía .env con las claves del sitio.
+TURNSTILE_TEST_SITE_KEY = "1x00000000000000000000AA"
+TURNSTILE_TEST_SECRET_KEY = "1x0000000000000000000000000000000AA"
+
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    # pydantic-settings mapea cada campo a su env var homónima en mayúsculas
+    # (case-insensitive): p. ej. `aws_region` ← `AWS_REGION`.
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
 
-    # Base de datos. Por defecto SQLite para desarrollo local sin Postgres.
-    database_url: str = "sqlite:///./musix.db"
-    # Backend de persistencia de metadatos: "sql" (SQLModel) o "dynamodb".
-    # En dev/local usamos "sql". El adaptador DynamoDB está declarado pero es un
-    # stub (preparación para producción) — ver app/db/dynamo.py.
-    db_backend: str = "sql"
-    # DynamoDB (solo se usan si db_backend == "dynamodb").
-    dynamodb_region: str = "eu-west-1"
-    dynamodb_endpoint_url: Optional[str] = None  # p. ej. http://localhost:8001 (local)
-    dynamodb_table_prefix: str = "musix_"
-
-    # Seguridad
+    # ── Seguridad / JWT ───────────────────────────────────────────
     secret_key: str = "dev-insecure-secret-change-me-please-32b+"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24 * 7  # 7 días
 
-    # Comportamiento
-    allow_registration: bool = True
-    # Desactiva la autenticación durante el desarrollo: todas las peticiones se
-    # tratan como un usuario "dev" fijo (con rol admin). Poner en false antes de producción.
-    auth_disabled: bool = True
-    # Muestra la landing page pública (registro/login). En dev queda desactivada;
-    # se activa en producción.
-    landing_enabled: bool = False
-
-    # Cuenta de administrador inicial. Si ambos están definidos, al arrancar se
-    # crea/asegura un usuario con rol "admin".
-    admin_email: Optional[str] = None
+    # ── Cuenta de administrador inicial ───────────────────────────
+    # ADMIN_USERNAME se usa como email de login del admin sembrado al arrancar.
+    admin_username: Optional[str] = None
     admin_password: Optional[str] = None
 
-    # ── Almacenamiento de ficheros (.mu6, originales gp5, etc.) ────────────
-    # "local" (disco, default dev) o "s3" (S3 / S3-compatible vía boto3).
-    storage_backend: str = "local"
-    # Almacenamiento local: carpeta raíz.
-    files_dir: Path = Path("/data/files")
-    # Almacenamiento S3 (solo se usan si storage_backend == "s3").
-    s3_bucket: Optional[str] = None
-    s3_region: str = "eu-west-1"
-    s3_endpoint_url: Optional[str] = None  # S3-compatible (MinIO, etc.)
-    s3_prefix: str = ""
-    aws_access_key_id: Optional[str] = None
-    aws_secret_access_key: Optional[str] = None
+    # ── Registro / flujo público ──────────────────────────────────
+    allow_registration: bool = True
+    # URL pública del frontend (para enlaces de email y redirect de OAuth).
+    public_base_url: str = "http://localhost:5173"
+    # Orígenes permitidos por CORS (coma-separados).
+    allowed_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
-    # Bancos de sonido (SF2/SF3 + SFZ) para el render de audio. Carpeta montada
-    # de solo lectura; se puebla a mano con scripts/fetch-soundbanks.sh.
+    # ── DynamoDB (backend único de metadatos, single-table) ───────
+    aws_region: str = "eu-west-1"
+    aws_access_key: Optional[str] = None
+    aws_secret_key: Optional[str] = None
+    dynamodb_table: str = "musix"
+    # Si está definido → DynamoDB Local (dev). En AWS real se deja vacío.
+    dynamodb_endpoint_url: Optional[str] = None
+
+    # ── Almacenamiento de ficheros: S3 canónico + caché local ─────
+    s3_bucket_name: Optional[str] = None
+    # Raíz de la caché local (efímera, TTL de días). Si no hay S3, actúa como
+    # almacenamiento local persistente (desarrollo sin AWS).
+    files_dir: Path = Path("/data/files")
+    cache_ttl_days: int = 7
+
+    # ── Soundbanks (SF2/SF3 + SFZ). S3 fuente de verdad; copia local. ──
     soundbanks_dir: Path = Path("/soundbanks")
+    soundbanks_s3_prefix: str = "soundbanks"
+
+    # ── SMTP / email (contacto + recuperación de contraseña) ──────
+    smtp_host: Optional[str] = None
+    smtp_port: int = 587
+    smtp_user: Optional[str] = None
+    smtp_password: Optional[str] = None
+    smtp_from: str = "contacto@mu6.es"
+    smtp_from_name: str = "Musix"
+    smtp_starttls: bool = True
+    smtp_ssl: bool = False
+    mail_to: Optional[str] = None
+
+    # ── Captcha (Cloudflare Turnstile) ────────────────────────────
+    captcha_site_key: str = TURNSTILE_TEST_SITE_KEY
+    captcha_secret_key: str = TURNSTILE_TEST_SECRET_KEY
+
+    # ── Google OAuth2 ─────────────────────────────────────────────
+    google_client_id: Optional[str] = None
+    google_client_secret: Optional[str] = None
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
+
+    @property
+    def google_enabled(self) -> bool:
+        return bool(self.google_client_id and self.google_client_secret)
+
+    @property
+    def s3_enabled(self) -> bool:
+        return bool(self.s3_bucket_name)
 
 
 @lru_cache

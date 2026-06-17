@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-import { api, type ProfileUpdate, type User } from "../lib/api";
+import { api, setToken, type ProfileUpdate, type User } from "../lib/api";
 import { useTheme } from "../theme/ThemeContext";
 
 interface AuthState {
@@ -10,30 +10,16 @@ interface AuthState {
   register: (
     email: string,
     password: string,
+    captchaToken: string,
     profile?: Omit<ProfileUpdate, "theme" | "preferences">,
   ) => Promise<void>;
+  // Adopta un token (p. ej. el devuelto por el callback de Google) y carga el usuario.
+  adoptToken: (token: string) => Promise<void>;
   updateProfile: (data: ProfileUpdate) => Promise<User>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
-
-// Usuario "dev" de respaldo: en modo desarrollo (vite dev), si /auth/me no
-// responde (backend caído o aún arrancando) entramos igualmente sin pasar por
-// /login. Las llamadas a la API siguen funcionando porque el backend, con
-// AUTH_DISABLED=true, atiende toda petición como su propio usuario dev.
-const DEV_FALLBACK_USER: User = {
-  id: 0,
-  email: "dev@example.com",
-  role: "admin",
-  display_name: "Dev",
-  author_name: "",
-  first_name: "",
-  last_name: "",
-  location: "",
-  theme: "normal",
-  preferences: {},
-};
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -46,18 +32,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (u?.theme) setTheme(u.theme);
   }
 
-  // Al cargar intenta recuperar el usuario. Si la auth está desactivada (modo
-  // desarrollo), /auth/me devuelve el usuario "dev" sin token y entramos directos.
-  // En dev, si /auth/me falla, usamos el usuario de respaldo para no exigir login.
-  // En producción, un fallo lleva al login.
+  // Al cargar, intenta recuperar el usuario con el token guardado. Si falla,
+  // limpiamos el token (el usuario quedará en null → rutas protegidas redirigen).
   useEffect(() => {
     api
       .me()
       .then(adopt)
-      .catch(() => {
-        if (import.meta.env.DEV) setUser(DEV_FALLBACK_USER);
-        else api.logout();
-      })
+      .catch(() => api.logout())
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -70,10 +51,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function register(
     email: string,
     password: string,
+    captchaToken: string,
     profile: Omit<ProfileUpdate, "theme" | "preferences"> = {},
   ) {
-    await api.register(email, password, profile);
+    await api.register(email, password, captchaToken, profile);
     await login(email, password);
+  }
+
+  async function adoptToken(token: string) {
+    setToken(token);
+    adopt(await api.me());
   }
 
   async function updateProfile(data: ProfileUpdate): Promise<User> {
@@ -88,7 +75,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, updateProfile, logout }}>
+    <AuthContext.Provider
+      value={{ user, loading, login, register, adoptToken, updateProfile, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -9,7 +9,7 @@ import { api, type Project } from "../lib/api";
 
 export default function EditorPage() {
   const { id } = useParams();
-  const projectId = Number(id);
+  const projectId = id ?? "";
   const [project, setProject] = useState<Project | null>(null);
   const [source, setSource] = useState<ArrayBuffer | null>(null);
   const [scoreData, setScoreData] = useState<Record<string, unknown> | null>(null);

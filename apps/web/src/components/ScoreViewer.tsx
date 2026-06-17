@@ -186,7 +186,7 @@ interface Props {
   source: ArrayBuffer | null;
   scoreData?: Record<string, unknown> | null;
   title?: string;
-  projectId?: number;
+  projectId?: string;
   onSave?: (scoreJson: Record<string, unknown>) => Promise<void> | void;
   editMode: boolean;
   onEditModeChange: (v: boolean) => void;
@@ -218,10 +218,10 @@ interface ProjectPrefs {
   playbackPitch: number;
   scales: ScaleAssignment[];
 }
-function prefsKey(projectId?: number) {
+function prefsKey(projectId?: string) {
   return `musix_prefs_${projectId ?? "default"}`;
 }
-function loadPrefs(projectId?: number): ProjectPrefs {
+function loadPrefs(projectId?: string): ProjectPrefs {
   const fallback: ProjectPrefs = { trackColors: {}, chordNotation: "american", instruments: {}, descriptions: {}, playbackPitch: 0, scales: [] };
   try {
     const raw = localStorage.getItem(prefsKey(projectId));

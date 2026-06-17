@@ -1,52 +1,59 @@
 services:
-  db:
-    image: postgres:16-alpine
+  dynamodb:
+    image: amazon/dynamodb-local:latest
     restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+    user: root
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-dbPath", "/data"]
     volumes:
-      - db-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+      - dynamodb-data:/data
 
   api:
     build:
       context: ./apps/api
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      DB_BACKEND: ${DB_BACKEND:-sql}
-      DYNAMODB_REGION: ${DYNAMODB_REGION:-eu-west-1}
-      DYNAMODB_ENDPOINT_URL: ${DYNAMODB_ENDPOINT_URL:-}
-      DYNAMODB_TABLE_PREFIX: ${DYNAMODB_TABLE_PREFIX:-musix_}
-      SECRET_KEY: ${SECRET_KEY}
-      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES}
-      ALLOW_REGISTRATION: ${ALLOW_REGISTRATION}
-      AUTH_DISABLED: ${AUTH_DISABLED}
-      LANDING_ENABLED: ${LANDING_ENABLED:-false}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
-      STORAGE_BACKEND: ${STORAGE_BACKEND:-local}
-      S3_BUCKET: ${S3_BUCKET:-}
-      S3_REGION: ${S3_REGION:-eu-west-1}
-      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-}
-      S3_PREFIX: ${S3_PREFIX:-}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      # ── DynamoDB (single-table) ──
+      DYNAMODB_TABLE: ${DYNAMODB_TABLE:-musix}
+      DYNAMODB_ENDPOINT_URL: ${DYNAMODB_ENDPOINT_URL:-http://dynamodb:8000}
+      AWS_REGION: ${AWS_REGION:-eu-west-1}
+      AWS_ACCESS_KEY: ${AWS_ACCESS_KEY:-local}
+      AWS_SECRET_KEY: ${AWS_SECRET_KEY:-local}
+      # ── Almacenamiento (S3 canónico + caché local) ──
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME:-}
+      CACHE_TTL_DAYS: ${CACHE_TTL_DAYS:-7}
       SOUNDBANKS_DIR: /soundbanks
+      SOUNDBANKS_S3_PREFIX: ${SOUNDBANKS_S3_PREFIX:-soundbanks}
+      # ── Seguridad / flujo público ──
+      SECRET_KEY: ${SECRET_KEY}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-10080}
+      ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      # ── Captcha (Cloudflare Turnstile) ──
+      CAPTCHA_SITE_KEY: ${CAPTCHA_SITE_KEY:-1x00000000000000000000AA}
+      CAPTCHA_SECRET_KEY: ${CAPTCHA_SECRET_KEY:-1x0000000000000000000000000000000AA}
+      # ── Google OAuth2 ──
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      # ── SMTP (contacto + recuperación) ──
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-contacto@mu6.es}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Musix}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
+      SMTP_SSL: ${SMTP_SSL:-false}
+      MAIL_TO: ${MAIL_TO:-}
     volumes:
       - file-data:/data/files
-      # Bancos de sonido descargados a mano en el host (bind-mount, solo lectura).
-      # Carpeta independiente y gitignoreada; el render los busca en /soundbanks.
-      - ./soundbanks:/soundbanks:ro
+      # Soundbanks: copia local (fuente de verdad = S3; se sincroniza al arrancar).
+      # En dev sin S3, se usa lo que haya en ./soundbanks del host.
+      - ./soundbanks:/soundbanks
     depends_on:
-      db:
-        condition: service_healthy
+      - dynamodb
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
       interval: 10s
@@ -78,7 +85,7 @@ services:
       - web
 
 volumes:
-  db-data:
+  dynamodb-data:
   file-data:
   caddy-data:
   caddy-config:

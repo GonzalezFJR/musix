@@ -39,12 +39,20 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+function jsonBody(method: string, data: unknown): RequestInit {
+  return {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  };
+}
+
 // ── Tipos ──────────────────────────────────────────────────────
 export type Theme = "light" | "normal" | "dark";
 export type Role = "admin" | "free" | "pro" | "invited";
 
 export interface User {
-  id: number;
+  id: string;
   email: string;
   role: Role;
   display_name: string;
@@ -65,17 +73,17 @@ export interface ProfileUpdate {
   preferences?: Record<string, unknown>;
 }
 export interface Folder {
-  id: number;
+  id: string;
   name: string;
-  parent_id: number | null;
+  parent_id: string | null;
   created_at: string;
 }
 export interface ProjectSummary {
-  id: number;
+  id: string;
   title: string;
   artist: string;
   description: string;
-  folder_id: number | null;
+  folder_id: string | null;
   has_score: boolean;
   original_filename: string | null;
   created_at: string;
@@ -97,19 +105,80 @@ export interface InstrumentCatalog {
   default_soundfont: string;
   sfz: SfzInstrument[];
 }
+export interface PublicConfig {
+  turnstile_site_key: string;
+  google_enabled: boolean;
+  registration_enabled: boolean;
+}
 
-// ── Auth ───────────────────────────────────────────────────────
+// ── Admin ──────────────────────────────────────────────────────
+export interface AdminUserSummary {
+  id: string;
+  email: string;
+  display_name: string;
+  role: Role;
+  project_count: number;
+  last_login: string | null;
+  created_at: string;
+}
+export interface AdminUserDetail extends AdminUserSummary {
+  author_name: string;
+  first_name: string;
+  last_name: string;
+  location: string;
+  projects: ProjectSummary[];
+}
+export interface AdminUserList {
+  users: AdminUserSummary[];
+  next_cursor: string | null;
+}
+export interface LoginEventRead {
+  user_id: string;
+  email: string;
+  created_at: string;
+}
+export interface AdminStats {
+  user_count: number;
+  project_count: number;
+  users_admin: number;
+  users_free: number;
+  users_pro: number;
+  users_invited: number;
+  recent_logins: LoginEventRead[];
+}
+export interface ContactMessageRead {
+  id: string;
+  name: string;
+  email: string;
+  subject: string;
+  body: string;
+  created_at: string;
+}
+export interface AdminContactList {
+  messages: ContactMessageRead[];
+  next_cursor: string | null;
+}
+
+// URL para iniciar el login con Google (redirige el navegador completo).
+export const googleLoginUrl = "/api/auth/google/login";
+
 export const api = {
+  // ── Config pública ───────────────────────────────────────────
+  publicConfig() {
+    return request<PublicConfig>("/public-config");
+  },
+
+  // ── Auth ─────────────────────────────────────────────────────
   async register(
     email: string,
     password: string,
+    captchaToken: string,
     profile: Omit<ProfileUpdate, "theme" | "preferences"> = {},
   ) {
-    return request<User>("/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, ...profile }),
-    });
+    return request<User>(
+      "/auth/register",
+      jsonBody("POST", { email, password, captcha_token: captchaToken, ...profile }),
+    );
   },
 
   async login(email: string, password: string) {
@@ -132,32 +201,47 @@ export const api = {
     return request<User>("/auth/me");
   },
   updateProfile(data: ProfileUpdate) {
-    return request<User>("/auth/me", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
+    return request<User>("/auth/me", jsonBody("PATCH", data));
+  },
+
+  forgotPassword(email: string, captchaToken: string) {
+    return request<{ ok: boolean }>(
+      "/auth/forgot-password",
+      jsonBody("POST", { email, captcha_token: captchaToken }),
+    );
+  },
+  resetPassword(token: string, password: string, captchaToken: string) {
+    return request<{ ok: boolean }>(
+      "/auth/reset-password",
+      jsonBody("POST", { token, password, captcha_token: captchaToken }),
+    );
+  },
+
+  // ── Contacto ─────────────────────────────────────────────────
+  contact(data: { name: string; email: string; subject: string; message: string; captchaToken: string }) {
+    return request<{ ok: boolean }>(
+      "/contact",
+      jsonBody("POST", {
+        name: data.name,
+        email: data.email,
+        subject: data.subject,
+        message: data.message,
+        captcha_token: data.captchaToken,
+      }),
+    );
   },
 
   // ── Carpetas ─────────────────────────────────────────────────
   listFolders() {
     return request<Folder[]>("/folders");
   },
-  createFolder(name: string, parentId: number | null = null) {
-    return request<Folder>("/folders", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, parent_id: parentId }),
-    });
+  createFolder(name: string, parentId: string | null = null) {
+    return request<Folder>("/folders", jsonBody("POST", { name, parent_id: parentId }));
   },
-  updateFolder(id: number, data: { name?: string; parent_id?: number | null }) {
-    return request<Folder>(`/folders/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
+  updateFolder(id: string, data: { name?: string; parent_id?: string | null }) {
+    return request<Folder>(`/folders/${id}`, jsonBody("PATCH", data));
   },
-  deleteFolder(id: number) {
+  deleteFolder(id: string) {
     return request<void>(`/folders/${id}`, { method: "DELETE" });
   },
 
@@ -165,44 +249,36 @@ export const api = {
   listProjects() {
     return request<ProjectSummary[]>("/projects");
   },
-  createProject(title: string, artist = "", folderId: number | null = null) {
-    return request<Project>("/projects", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, artist, folder_id: folderId }),
-    });
+  createProject(title: string, artist = "", folderId: string | null = null) {
+    return request<Project>("/projects", jsonBody("POST", { title, artist, folder_id: folderId }));
   },
-  getProject(id: number) {
+  getProject(id: string) {
     return request<Project>(`/projects/${id}`);
   },
   updateProject(
-    id: number,
+    id: string,
     data: {
       title?: string;
       artist?: string;
       description?: string;
-      folder_id?: number | null;
+      folder_id?: string | null;
       move_to_root?: boolean;
       score?: Record<string, unknown>;
     },
   ) {
-    return request<Project>(`/projects/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
+    return request<Project>(`/projects/${id}`, jsonBody("PATCH", data));
   },
   // Mueve un proyecto a una carpeta (o a la raíz con folderId = null).
-  moveProject(id: number, folderId: number | null) {
+  moveProject(id: string, folderId: string | null) {
     return this.updateProject(
       id,
       folderId === null ? { move_to_root: true } : { folder_id: folderId },
     );
   },
-  deleteProject(id: number) {
+  deleteProject(id: string) {
     return request<void>(`/projects/${id}`, { method: "DELETE" });
   },
-  async uploadFile(id: number, file: File) {
+  async uploadFile(id: string, file: File) {
     const form = new FormData();
     form.append("file", file);
     return request<Project>(`/projects/${id}/file`, { method: "POST", body: form });
@@ -212,12 +288,36 @@ export const api = {
     return request<InstrumentCatalog>("/instruments");
   },
   // Descarga el fichero original como ArrayBuffer (con auth) para AlphaTab.
-  async fetchFileBytes(id: number): Promise<ArrayBuffer> {
+  async fetchFileBytes(id: string): Promise<ArrayBuffer> {
     const headers = new Headers();
     const token = getToken();
     if (token) headers.set("Authorization", `Bearer ${token}`);
     const res = await fetch(`/api/projects/${id}/file`, { headers });
     if (!res.ok) throw new ApiError(res.status, "No se pudo descargar el fichero");
     return res.arrayBuffer();
+  },
+
+  // ── Admin ────────────────────────────────────────────────────
+  adminStats() {
+    return request<AdminStats>("/admin/stats");
+  },
+  adminUsers(cursor: string | null = null, limit = 50) {
+    const q = new URLSearchParams({ limit: String(limit) });
+    if (cursor) q.set("cursor", cursor);
+    return request<AdminUserList>(`/admin/users?${q}`);
+  },
+  adminUser(id: string) {
+    return request<AdminUserDetail>(`/admin/users/${id}`);
+  },
+  adminUpdateUser(id: string, data: { role?: Role; display_name?: string }) {
+    return request<AdminUserDetail>(`/admin/users/${id}`, jsonBody("PATCH", data));
+  },
+  adminDeleteUser(id: string) {
+    return request<void>(`/admin/users/${id}`, { method: "DELETE" });
+  },
+  adminContacts(cursor: string | null = null, limit = 50) {
+    const q = new URLSearchParams({ limit: String(limit) });
+    if (cursor) q.set("cursor", cursor);
+    return request<AdminContactList>(`/admin/contacts?${q}`);
   },
 };

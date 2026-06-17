@@ -1,8 +1,4 @@
-"""Almacenamiento en S3 (o S3-compatible: MinIO, etc.) vía boto3.
-
-boto3 es una dependencia opcional (extra "s3"): se importa de forma perezosa
-para que el desarrollo local con almacenamiento en disco no la requiera.
-"""
+"""Almacenamiento canónico en S3 (o S3-compatible) vía boto3."""
 
 from __future__ import annotations
 
@@ -21,15 +17,10 @@ class S3Storage(StorageBackend):
         access_key_id: Optional[str] = None,
         secret_access_key: Optional[str] = None,
     ):
-        try:
-            import boto3  # import perezoso (extra "s3")
-        except ImportError as exc:  # pragma: no cover
-            raise RuntimeError(
-                "STORAGE_BACKEND=s3 requiere boto3. Instala el extra: pip install '.[s3]'"
-            ) from exc
+        import boto3
 
         if not bucket:
-            raise RuntimeError("STORAGE_BACKEND=s3 requiere S3_BUCKET")
+            raise RuntimeError("El almacenamiento S3 requiere S3_BUCKET_NAME")
 
         self.bucket = bucket
         self.prefix = prefix.strip("/")
