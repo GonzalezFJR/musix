@@ -1,0 +1,16 @@
+// Marca µ6 inline (SVG). La µ usa currentColor (hereda el color del texto, así
+// se adapta al tema); el 6 mantiene el teal de marca. Para variantes en archivo
+// ver public/brand/.
+export default function Logo({ className = "h-7 w-auto" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 128 96" className={className} role="img" aria-label="Musix">
+      <g fill="none" stroke="currentColor" strokeWidth="11" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M26,30 V90" />
+        <path d="M26,62 C26,73 33,77 41,77 C49,77 55,72 55,62 V30" />
+      </g>
+      <g fill="none" stroke="#2dd4bf" strokeWidth="9" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M106,16 C96,10 82,12 79,30 C77,44 77,52 90,52 C100,52 104,46 104,39 C104,32 99,28 91,28 C84,28 80,32 79,37" />
+      </g>
+    </svg>
+  );
+}

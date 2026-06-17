@@ -1,0 +1,26 @@
+name: Publish
+
+on:
+  schedule:
+    - cron: "10 0 * * *"
+  workflow_dispatch:
+
+jobs:
+  web:
+    uses: ./.github/workflows/~publish_web.yml
+    secrets: inherit
+    with: 
+      version: alpha ${{github.run_number}}
+      npm_tag: alpha
+
+  dotnet:
+    uses: ./.github/workflows/~publish_dotnet.yml
+    secrets: inherit
+    with: 
+      version: alpha ${{github.run_number}}
+
+  kotlin:
+    uses: ./.github/workflows/~publish_kotlin.yml
+    secrets: inherit
+    with: 
+      version: alpha ${{github.run_number}}

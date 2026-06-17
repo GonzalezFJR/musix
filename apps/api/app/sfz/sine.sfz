@@ -1,0 +1,7 @@
+// Sintetizador Musix — onda senoidal (CC0)
+<region>
+sample=*sine
+ampeg_attack=0.01
+ampeg_decay=0.08
+ampeg_sustain=85
+ampeg_release=0.35

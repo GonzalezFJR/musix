@@ -1,0 +1,9 @@
+// Sintetizador Musix — onda de sierra (CC0)
+<region>
+sample=*saw
+ampeg_attack=0.005
+ampeg_decay=0.12
+ampeg_sustain=78
+ampeg_release=0.25
+cutoff=9000
+fil_type=lpf_2p

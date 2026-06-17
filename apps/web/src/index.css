@@ -1,0 +1,129 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Temas (claro / normal / oscuro) ─────────────────────────────
+   Las variables son tripletes RGB consumidos por Tailwind (ink/accent/slate).
+   El tema se aplica con data-theme en <html>; "normal" es el valor por defecto.
+*/
+:root,
+:root[data-theme="normal"] {
+  --ink-900: 11 13 18;
+  --ink-800: 18 21 28;
+  --ink-700: 26 30 39;
+  --ink-600: 37 43 56;
+  --ink-500: 57 64 79;
+  --accent: 45 212 191;
+  --accent-soft: 94 234 212;
+  /* slate (texto) — valores por defecto de Tailwind (texto claro sobre oscuro) */
+  --slate-100: 241 245 249;
+  --slate-200: 226 232 240;
+  --slate-300: 203 213 225;
+  --slate-400: 148 163 184;
+  --slate-500: 100 116 139;
+  --slate-600: 71 85 105;
+  --slate-700: 51 65 85;
+  --slate-800: 30 41 59;
+  /* Fondo del lienzo de la partitura (AlphaTab) y color de su notación */
+  --score-bg: 233 232 228;
+}
+
+:root[data-theme="dark"] {
+  --ink-900: 5 6 9;
+  --ink-800: 11 13 18;
+  --ink-700: 18 21 28;
+  --ink-600: 26 30 39;
+  --ink-500: 45 52 66;
+  --accent: 45 212 191;
+  --accent-soft: 94 234 212;
+  --slate-100: 241 245 249;
+  --slate-200: 226 232 240;
+  --slate-300: 203 213 225;
+  --slate-400: 148 163 184;
+  --slate-500: 113 128 150;
+  --slate-600: 90 102 122;
+  --slate-700: 71 85 105;
+  --slate-800: 51 65 85;
+  /* Oscuro total: la partitura también va en oscuro */
+  --score-bg: 15 18 24;
+}
+
+:root[data-theme="light"] {
+  /* Superficies claras (header/barras/paneles) */
+  --ink-900: 248 250 252;
+  --ink-800: 255 255 255;
+  --ink-700: 241 245 249;
+  --ink-600: 226 232 240;
+  --ink-500: 203 213 225;
+  --accent: 13 148 136;
+  --accent-soft: 17 94 89;
+  /* slate (texto) — invertido: ahora son grises oscuros sobre fondo claro */
+  --slate-100: 15 23 42;
+  --slate-200: 30 41 59;
+  --slate-300: 51 65 85;
+  --slate-400: 71 85 105;
+  --slate-500: 100 116 139;
+  --slate-600: 148 163 184;
+  --slate-700: 71 85 105;
+  --slate-800: 30 41 59;
+  --score-bg: 233 232 228;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-ink-900 text-slate-200 antialiased;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium
+      transition-colors focus:outline-none focus:ring-2 focus:ring-accent/50 disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-accent text-ink-900 hover:bg-accent-soft;
+  }
+  .btn-ghost {
+    @apply btn bg-ink-700 text-slate-200 hover:bg-ink-600;
+  }
+  .input {
+    @apply w-full rounded-lg border border-ink-500 bg-ink-800 px-3 py-2 text-sm
+      placeholder:text-slate-500 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent;
+  }
+  .card {
+    @apply rounded-xl border border-ink-600 bg-ink-800/60 shadow-lg;
+  }
+}
+
+/* ── Cursor y selección de AlphaTab (tema verdeazul / teal) ────── */
+/* Resalte del compás en reproducción */
+.at-cursor-bar {
+  background: rgba(45, 212, 191, 0.16);
+}
+/* Línea vertical del beat actual: fina y sutil */
+.at-cursor-beat {
+  background: rgba(45, 212, 191, 0.8);
+  width: 1px;
+}
+/* Notas resaltadas mientras suenan */
+.at-highlight * {
+  fill: #0d9488;
+  stroke: #0d9488;
+}
+/* Rango seleccionado al arrastrar sobre la partitura */
+.at-selection div {
+  background: rgba(45, 212, 191, 0.18);
+}
+/* En modo edición ocultamos el cursor de reproducción (resalte de compás + barra
+   vertical): basta con el cuadro de posición del editor. */
+.musix-editing .at-cursor-bar,
+.musix-editing .at-cursor-beat {
+  display: none !important;
+}

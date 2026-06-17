@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 104" role="img"
+     aria-label="Musix — µ6 se transforma en una corchea y un bemol">
+  <!--
+    Morph real (interpolación de `d`, sin cross-fade): los dos símbolos se
+    transforman A LA VEZ.
+      µ  →  corchea (cabeza + plica + corchete)
+      6  →  bemol (♭)
+    Cada trazo conserva su estructura de comandos entre los dos estados para que
+    el navegador interpole la geometría. Ciclo de 6s en bucle (ida y vuelta).
+    Colores explícitos (la landing es oscura): µ/corchea claros, 6/bemol teal.
+  -->
+
+  <!-- ===================== µ  ⇄  corchea (claro) ===================== -->
+  <!-- palo izquierdo (largo)  →  plica de la nota -->
+  <path fill="none" stroke="#f8fafc" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"
+        d="M26,30 V90">
+    <animate attributeName="d" dur="6s" repeatCount="indefinite"
+      calcMode="spline" keyTimes="0;0.18;0.5;0.82;1"
+      keySplines="0 0 1 1;.45 0 .2 1;0 0 1 1;.45 0 .2 1"
+      values="M26,30 V90;M26,30 V90;M46,22 V70;M46,22 V70;M26,30 V90"/>
+  </path>
+
+  <!-- cuenco de la µ  →  cabeza de la nota (se rellena al formarse) -->
+  <path stroke="#f8fafc" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"
+        fill="#f8fafc" fill-opacity="0"
+        d="M26,62 C26,73 33,77 41,77 C49,77 55,72 55,62">
+    <animate attributeName="d" dur="6s" repeatCount="indefinite"
+      calcMode="spline" keyTimes="0;0.18;0.5;0.82;1"
+      keySplines="0 0 1 1;.45 0 .2 1;0 0 1 1;.45 0 .2 1"
+      values="M26,62 C26,73 33,77 41,77 C49,77 55,72 55,62;M26,62 C26,73 33,77 41,77 C49,77 55,72 55,62;M24,70 C24,80 46,80 46,70 C46,60 24,60 24,70;M24,70 C24,80 46,80 46,70 C46,60 24,60 24,70;M26,62 C26,73 33,77 41,77 C49,77 55,72 55,62"/>
+    <animate attributeName="fill-opacity" dur="6s" repeatCount="indefinite"
+      calcMode="spline" keyTimes="0;0.18;0.5;0.82;1"
+      keySplines="0 0 1 1;.45 0 .2 1;0 0 1 1;.45 0 .2 1"
+      values="0;0;1;1;0"/>
+  </path>
+
+  <!-- palo derecho de la µ  →  corchete de la nota -->
+  <path fill="none" stroke="#f8fafc" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"
+        d="M55,62 C55,51 55,41 55,30">
+    <animate attributeName="d" dur="6s" repeatCount="indefinite"
+      calcMode="spline" keyTimes="0;0.18;0.5;0.82;1"
+      keySplines="0 0 1 1;.45 0 .2 1;0 0 1 1;.45 0 .2 1"
+      values="M55,62 C55,51 55,41 55,30;M55,62 C55,51 55,41 55,30;M46,22 C58,26 60,40 50,46;M46,22 C58,26 60,40 50,46;M55,62 C55,51 55,41 55,30"/>
+  </path>
+
+  <!-- ===================== 6  ⇄  bemol (teal) ===================== -->
+  <!-- espina del 6  →  asta del bemol -->
+  <path fill="none" stroke="#2dd4bf" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"
+        d="M104,18 C95,11 82,14 79,33">
+    <animate attributeName="d" dur="6s" repeatCount="indefinite"
+      calcMode="spline" keyTimes="0;0.18;0.5;0.82;1"
+      keySplines="0 0 1 1;.45 0 .2 1;0 0 1 1;.45 0 .2 1"
+      values="M104,18 C95,11 82,14 79,33;M104,18 C95,11 82,14 79,33;M79,12 C79,27 79,42 79,52;M79,12 C79,27 79,42 79,52;M104,18 C95,11 82,14 79,33"/>
+  </path>
+
+  <!-- bucle del 6  →  panza del bemol -->
+  <path fill="none" stroke="#2dd4bf" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"
+        d="M79,33 C76,46 80,53 90,53 C100,53 104,46 104,39 C104,31 96,28 89,29 C83,30 80,33 79,37">
+    <animate attributeName="d" dur="6s" repeatCount="indefinite"
+      calcMode="spline" keyTimes="0;0.18;0.5;0.82;1"
+      keySplines="0 0 1 1;.45 0 .2 1;0 0 1 1;.45 0 .2 1"
+      values="M79,33 C76,46 80,53 90,53 C100,53 104,46 104,39 C104,31 96,28 89,29 C83,30 80,33 79,37;M79,33 C76,46 80,53 90,53 C100,53 104,46 104,39 C104,31 96,28 89,29 C83,30 80,33 79,37;M79,40 C90,33 101,40 96,50 C92,57 83,56 79,50 C78,48 78,45 79,43 C79,42 79,41 79,40;M79,40 C90,33 101,40 96,50 C92,57 83,56 79,50 C78,48 78,45 79,43 C79,42 79,41 79,40;M79,33 C76,46 80,53 90,53 C100,53 104,46 104,39 C104,31 96,28 89,29 C83,30 80,33 79,37"/>
+  </path>
+</svg>

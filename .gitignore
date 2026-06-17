@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Node
+node_modules/
+dist/
+.vite/
+*.local
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Data
+data/
+*.sqlite
+*.db
+
+# Bancos de sonido: se descargan a mano (scripts/fetch-soundbanks.sh), no se versionan.
+# Solo se versionan el catálogo y el README de la carpeta.
+soundbanks/*
+!soundbanks/README.md
+!soundbanks/manifest.json
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Fork de AlphaTab: deps y artefactos generados
+vendor/alphatab/node_modules/
+vendor/alphatab/packages/*/node_modules/
+vendor/alphatab/packages/*/dist/
+vendor/alphatab/packages/alphatab/src/generated/
+vendor/alphatab/**/*.tgz
+# Repo git anidado del fork (upstream CoderLine/alphaTab): no se versiona dentro de musix;
+# el fuente del fork se vendoriza como ficheros normales (cumple MPL-2.0).
+vendor/alphatab/.git/
+# Fixtures de test del fork (no necesarios para construir el paquete; pesan ~50 MB).
+vendor/alphatab/**/test/
+vendor/alphatab/**/test-data/
+vendor/alphatab/**/test-results/
+
+# Planificación interna (no se publica).
+PLAN.md

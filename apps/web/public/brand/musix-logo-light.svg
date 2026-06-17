@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 96" role="img" aria-label="Musix">
+  <!-- µ = "Mu" (oscuro, para fondos claros) -->
+  <g fill="none" stroke="#0b0d12" stroke-width="11" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M26,30 V90"/>
+    <path d="M26,62 C26,73 33,77 41,77 C49,77 55,72 55,62 V30"/>
+  </g>
+  <!-- 6 = "six" (teal oscuro, mejor contraste sobre claro) -->
+  <g fill="none" stroke="#0d9488" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M106,16 C96,10 82,12 79,30 C77,44 77,52 90,52 C100,52 104,46 104,39 C104,32 99,28 91,28 C84,28 80,32 79,37"/>
+  </g>
+</svg>

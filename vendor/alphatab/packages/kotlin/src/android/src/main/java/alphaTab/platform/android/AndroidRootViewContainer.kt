@@ -1,0 +1,154 @@
+package alphaTab.platform.android
+
+import alphaTab.*
+import alphaTab.platform.IContainer
+import alphaTab.platform.IMouseEventArgs
+import android.animation.ObjectAnimator
+import android.annotation.SuppressLint
+import android.view.View
+import android.widget.HorizontalScrollView
+import android.widget.ScrollView
+import kotlin.contracts.ExperimentalContracts
+
+@ExperimentalContracts
+@ExperimentalUnsignedTypes
+@SuppressLint("ClickableViewAccessibility")
+internal class AndroidRootViewContainer : IContainer, View.OnLayoutChangeListener {
+    private val _outerScroll: HorizontalScrollView
+    private val _innerScroll: ScrollView
+    private val _uiInvoke: (action: (() -> Unit)) -> Unit
+    internal val renderSurface: AlphaTabRenderSurface
+
+    constructor(
+        outerScroll: HorizontalScrollView,
+        innerScroll: ScrollView,
+        renderSurface: AlphaTabRenderSurface,
+        uiInvoke: (action: (() -> Unit)) -> Unit
+    ) {
+        _uiInvoke = uiInvoke
+        _innerScroll = innerScroll
+        _outerScroll = outerScroll
+        this.renderSurface = renderSurface
+        outerScroll.addOnLayoutChangeListener(this)
+    }
+
+    fun destroy() {
+        _outerScroll.removeOnLayoutChangeListener(this)
+    }
+
+    override fun setBounds(x: Double, y: Double, w: Double, h: Double) {
+    }
+
+    override var width: Double
+        get() = (_outerScroll.measuredWidth / Environment.highDpiFactor)
+        set(@Suppress("UNUSED_PARAMETER") value) {
+        }
+    override var height: Double
+        get() = (_outerScroll.measuredHeight / Environment.highDpiFactor)
+        set(@Suppress("UNUSED_PARAMETER") value) {
+        }
+    override val isVisible: Boolean
+        get() = _outerScroll.visibility == View.VISIBLE
+
+    override var scrollLeft: Double
+        get() = _outerScroll.scrollX.toDouble()
+        set(value) {
+            _uiInvoke {
+                _outerScroll.scrollX = value.toInt()
+            }
+        }
+    override var scrollTop: Double
+        get() = _innerScroll.scrollY.toDouble()
+        set(value) {
+            _uiInvoke {
+                _innerScroll.scrollY = value.toInt()
+            }
+        }
+
+    override fun appendChild(child: IContainer) {
+    }
+
+    override fun stopAnimation() {
+    }
+
+    override fun transitionToX(duration: Double, x: Double) {
+    }
+
+    override fun clear() {
+    }
+
+    override var resize: IEventEmitter = EventEmitter()
+    override var mouseDown: IEventEmitterOfT<IMouseEventArgs> = EventEmitterOfT()
+    override var mouseMove: IEventEmitterOfT<IMouseEventArgs> = EventEmitterOfT()
+    override var mouseUp: IEventEmitterOfT<IMouseEventArgs> = EventEmitterOfT()
+
+    override fun onLayoutChange(
+        v: View?,
+        left: Int,
+        top: Int,
+        right: Int,
+        bottom: Int,
+        oldLeft: Int,
+        oldTop: Int,
+        oldRight: Int,
+        oldBottom: Int
+    ) {
+        val widthChanged = (right - left) != (oldRight - oldLeft)
+        val heightChanged = (bottom - top) != (oldTop - oldBottom)
+        if (widthChanged || heightChanged) {
+            _uiInvoke {
+                (resize as EventEmitter).trigger()
+            }
+        }
+    }
+
+    private var _scrollToX: ObjectAnimator? = null
+    private var _scrollToY: ObjectAnimator? = null
+
+    fun scrollToX(offset: Double, speed: Double) {
+        _uiInvoke {
+            _scrollToX?.end()
+            val scrollX = (offset * Environment.highDpiFactor).toInt()
+            if (speed < 10) {
+                _outerScroll.scrollX = scrollX
+            } else {
+
+                val animation = ObjectAnimator.ofInt(
+                    _outerScroll,
+                    "scrollX",
+                    scrollX
+                ).setDuration(speed.toLong())
+                animation.start()
+                _scrollToX = animation
+            }
+        }
+    }
+
+    fun scrollToY(offset: Double, speed: Double) {
+        _uiInvoke {
+            _scrollToY?.end()
+            val scrollY = (offset * Environment.highDpiFactor).toInt()
+            if (speed < 10) {
+                _innerScroll.scrollY = scrollY
+            } else {
+
+                val animation = ObjectAnimator.ofInt(
+                    _innerScroll,
+                    "scrollY",
+                    scrollY
+                ).setDuration(speed.toLong())
+                animation.start()
+                _scrollToY = animation
+            }
+        }
+    }
+
+    fun stopScrolling(){
+        _uiInvoke {
+            _scrollToY?.end()
+            _scrollToY = null
+            _scrollToX?.end()
+            _scrollToX = null
+        }
+    }
+}

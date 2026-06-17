@@ -1,0 +1,74 @@
+{
+    "$schema": "https://biomejs.dev/schemas/2.2.5/schema.json",
+    "files": {
+        "maxSize": 5242880
+    },
+    "formatter": {
+        "enabled": true,
+        "formatWithErrors": true,
+        "attributePosition": "auto",
+        "indentStyle": "space",
+        "indentWidth": 4,
+        "lineWidth": 120,
+        "lineEnding": "lf"
+    },
+    "assist": {
+        "actions": {
+            "source": {
+                "organizeImports": "on"
+            }
+        }
+    },
+    "linter": {
+        "enabled": true,
+        "rules": {
+            "style": {
+                "useEnumInitializers": "error",
+                "noInferrableTypes": "off", // we want to be explicit (for transpiler)
+                "noNonNullAssertion": "off", // we use these assertions often.
+                "noParameterAssign": "off", // useful for default values
+                "useExponentiationOperator": "off", // not supported in C# and Kotlin, lets stay with Math.pow
+                "useBlockStatements": {
+                    "options": {},
+                    "level": "error",
+                    "fix": "safe"
+                },
+                "noDescendingSpecificity": "off"
+            },
+            "suspicious": {
+                "noExplicitAny": "off", // used in areas where we work with dynamic JSON data
+                "noEmptyInterface": "off" // we use these for marker interfaces 
+            },
+            "correctness": {
+                "noUnusedImports": {
+                    "options": {},
+                    "level": "error",
+                    "fix": "safe"
+                },
+                "noSwitchDeclarations": "off"
+            },
+            "complexity": {
+                "useOptionalChain": "off", // its currently a bit sensitive with Kotlin as they evaulate things differently
+                "noStaticOnlyClass": "off", // we are strictly OOP (for transpiler)
+                "noUselessUndefinedInitialization": "off",
+                "noImportantStyles": "off"
+            }
+        }
+    },
+    "javascript": {
+        "formatter": {
+            "arrowParentheses": "asNeeded",
+            "bracketSameLine": true,
+            "bracketSpacing": true,
+            "quoteProperties": "asNeeded",
+            "semicolons": "always",
+            "trailingCommas": "none",
+            "quoteStyle": "single"
+        }
+    },
+    "json": {
+        "formatter": {
+            "trailingCommas": "none"
+        }
+    }
+}

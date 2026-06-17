@@ -1,0 +1,545 @@
+import type { EventEmitterOfT } from '@coderline/alphatab/EventEmitter';
+import { Logger } from '@coderline/alphatab/Logger';
+import { ScoreSubElement } from '@coderline/alphatab/model/Score';
+import { type ICanvas, TextAlign } from '@coderline/alphatab/platform/ICanvas';
+import type { TextGlyph } from '@coderline/alphatab/rendering/glyphs/TextGlyph';
+import type { RenderHints } from '@coderline/alphatab/rendering/IScoreRenderer';
+import { ScoreLayout } from '@coderline/alphatab/rendering/layout/ScoreLayout';
+import { RenderFinishedEventArgs } from '@coderline/alphatab/rendering/RenderFinishedEventArgs';
+import type { MasterBarsRenderers } from '@coderline/alphatab/rendering/staves/MasterBarsRenderers';
+import type { StaffSystem } from '@coderline/alphatab/rendering/staves/StaffSystem';
+import type { RenderingResources } from '@coderline/alphatab/RenderingResources';
+
+/**
+ * Base layout for page and parchment style layouts where we have an endless
+ * vertical page with fitted systems.
+ * @internal
+ */
+export abstract class VerticalLayoutBase extends ScoreLayout {
+    private _systems: StaffSystem[] = [];
+    private _allMasterBarRenderers: MasterBarsRenderers[] = [];
+    private _barsFromPreviousSystem: MasterBarsRenderers[] = [];
+
+    private _reuseViewPort: boolean = false;
+
+    private _preSystemPartialIds: string[] = [];
+    private _systemPartialIds: string[] = [];
+
+    protected doLayoutAndRender(renderHints: RenderHints | undefined): void {
+        let y: number = this.pagePadding![1];
+        this.width = this.renderer.width;
+        this._allMasterBarRenderers = [];
+        this._preSystemPartialIds = [];
+        this._systemPartialIds = [];
+
+        this._reuseViewPort = renderHints?.reuseViewport ?? false;
+        this._systems = [];
+
+        //
+        // 1. Score Info
+        y = this._layoutAndRenderScoreInfo(y, -1);
+        //
+        // 2. Tunings
+        y = this._layoutAndRenderTunings(y, -1);
+        //
+        // 3. Chord Diagrms
+        y = this._layoutAndRenderChordDiagrams(y, -1);
+        //
+        // 4. One result per StaffSystem
+        y = this._layoutAndRenderScore(y, this.firstBarIndex);
+
+        y = this.layoutAndRenderBottomScoreInfo(y);
+
+        y = this._layoutAndRenderAnnotation(y);
+
+        this.height = (y + this.pagePadding![3]) * this.renderer.settings.display.scale;
+    }
+
+    protected override registerPartial(args: RenderFinishedEventArgs, callback: (canvas: ICanvas) => void): void {
+        args.reuseViewport = this._reuseViewPort;
+        super.registerPartial(args, callback);
+    }
+
+    protected reregisterPartial(id: string) {
+        const args = this.getExistingPartialArgs(id);
+        if (!args) {
+            return;
+        }
+        args.reuseViewport = this._reuseViewPort;
+        (this.renderer.partialLayoutFinished as EventEmitterOfT<RenderFinishedEventArgs>).trigger(args);
+    }
+
+    public get supportsResize(): boolean {
+        return true;
+    }
+
+    public get firstBarX(): number {
+        let x = this.pagePadding![0];
+        if (this._systems.length > 0) {
+            x += this._systems[0].accoladeWidth;
+        }
+        return x;
+    }
+
+    public override doUpdateForBars(renderHints: RenderHints): boolean {
+        this._reuseViewPort = renderHints.reuseViewport ?? false;
+        const firstModifiedMasterBar = renderHints.firstChangedMasterBar!;
+
+        // first update existing systems as needed
+        const systemIndex = this._systems.findIndex(s => {
+            const first = s.masterBarsRenderers[0].masterBar.index;
+            const last = s.masterBarsRenderers[s.masterBarsRenderers.length - 1].masterBar.index;
+            return first <= firstModifiedMasterBar && firstModifiedMasterBar <= last;
+        });
+
+        if (systemIndex === -1 || !this.renderer.settings.core.enableLazyLoading) {
+            return false;
+        }
+
+        // Bars from the start of the re-layouted system onward will be re-registered during the
+        // paint pass. Clear their old entries from the preserved BoundsLookup so registration
+        // produces a clean, complete lookup after this render finishes.
+        const firstRebuiltBarIndex = this._systems[systemIndex].masterBarsRenderers[0].masterBar.index;
+        this.renderer.boundsLookup!.clearFromMasterBar(firstRebuiltBarIndex);
+
+        // for now we do a full relayout from the first modified masterbar
+        // there is a lot of room for even more performant updates, but they come
+        // at a risk that features break.
+        // e.g. we could only shift systems where the content didn't change,
+        // but we might still have ties/slurs which have to be updated.
+        const removeSystems = this._systems.splice(systemIndex, this._systems.length - systemIndex);
+        this._systemPartialIds.splice(systemIndex, this._systemPartialIds.length - systemIndex);
+        const system = removeSystems[0];
+        let y = system.y;
+        const firstBarIndex = system.masterBarsRenderers[0].masterBar.index;
+
+        // signal all partials which didn't change
+        for (const preSystemPartial of this._preSystemPartialIds) {
+            this.reregisterPartial(preSystemPartial);
+        }
+        for (let i = 0; i < systemIndex; i++) {
+            this.reregisterPartial(this._systemPartialIds[i]);
+        }
+
+        // new partials for all other prats
+        y = this._layoutAndRenderScore(y, firstBarIndex);
+
+        y = this.layoutAndRenderBottomScoreInfo(y);
+
+        y = this._layoutAndRenderAnnotation(y);
+
+        this.height = (y + this.pagePadding![3]) * this.renderer.settings.display.scale;
+
+        return true;
+    }
+
+    public doResize(): void {
+        let y: number = this.pagePadding![1];
+        this.width = this.renderer.width;
+        const oldHeight: number = this.height;
+        this._reuseViewPort = true;
+
+        //
+        // 1. Score Info
+        y = this._layoutAndRenderScoreInfo(y, oldHeight);
+        //
+        // 2. Tunings
+        y = this._layoutAndRenderTunings(y, oldHeight);
+        //
+        // 3. Chord Digrams
+        y = this._layoutAndRenderChordDiagrams(y, oldHeight);
+        //
+        // 4. One result per StaffSystem
+        y = this._resizeAndRenderScore(y, oldHeight);
+
+        y = this.layoutAndRenderBottomScoreInfo(y);
+
+        y = this._layoutAndRenderAnnotation(y);
+
+        this.height = (y + this.pagePadding![3]) * this.renderer.settings.display.scale;
+    }
+
+    private _layoutAndRenderTunings(y: number, totalHeight: number = -1): number {
+        if (!this.tuningGlyph) {
+            return y;
+        }
+
+        const res: RenderingResources = this.renderer.settings.display.resources;
+        this.tuningGlyph.x = this.pagePadding![0];
+        this.tuningGlyph.width = this.scaledWidth - this.pagePadding![0] - this.pagePadding![2];
+        this.tuningGlyph.doLayout();
+
+        const tuningHeight = Math.round(this.tuningGlyph.height);
+
+        const e = new RenderFinishedEventArgs();
+        e.x = 0;
+        e.y = y;
+        e.width = this.scaledWidth;
+        e.height = tuningHeight;
+        e.totalWidth = this.scaledWidth;
+        e.totalHeight = totalHeight < 0 ? y + e.height : totalHeight;
+
+        this.registerPartial(e, (canvas: ICanvas) => {
+            canvas.color = res.scoreInfoColor;
+            canvas.textAlign = TextAlign.Center;
+            this.tuningGlyph!.paint(0, 0, canvas);
+        });
+        this._preSystemPartialIds.push(e.id);
+
+        return y + tuningHeight;
+    }
+
+    private _layoutAndRenderChordDiagrams(y: number, totalHeight: number = -1): number {
+        if (!this.chordDiagrams) {
+            return y;
+        }
+        const res: RenderingResources = this.renderer.settings.display.resources;
+        this.chordDiagrams.x = this.pagePadding![0];
+        this.chordDiagrams.width = this.scaledWidth - this.pagePadding![0] - this.pagePadding![2];
+        this.chordDiagrams.doLayout();
+
+        const diagramHeight = Math.round(this.chordDiagrams.height);
+
+        const e = new RenderFinishedEventArgs();
+        e.x = 0;
+        e.y = y;
+        e.width = this.scaledWidth;
+        e.height = diagramHeight;
+        e.totalWidth = this.scaledWidth;
+        e.totalHeight = totalHeight < 0 ? y + diagramHeight : totalHeight;
+
+        this.registerPartial(e, (canvas: ICanvas) => {
+            canvas.color = res.scoreInfoColor;
+            canvas.textAlign = TextAlign.Center;
+            this.chordDiagrams!.paint(0, 0, canvas);
+        });
+        this._preSystemPartialIds.push(e.id);
+
+        return y + diagramHeight;
+    }
+
+    private _layoutAndRenderScoreInfo(y: number, totalHeight: number = -1): number {
+        Logger.debug(this.name, 'Layouting score info');
+
+        const e = new RenderFinishedEventArgs();
+        e.x = 0;
+        e.y = y;
+
+        let infoHeight = 0;
+
+        const res: RenderingResources = this.renderer.settings.display.resources;
+
+        const scoreInfoGlyphs: TextGlyph[] = [];
+
+        for (const [scoreElement, _notationElement] of ScoreLayout.headerElements.value) {
+            if (this.headerGlyphs.has(scoreElement)) {
+                const glyph: TextGlyph = this.headerGlyphs.get(scoreElement)!;
+                glyph.y = infoHeight;
+                this.alignScoreInfoGlyph(glyph);
+
+                let lineHeight = glyph.font.size;
+
+                // words and music on same line if not aligned on same side
+                if (scoreElement === ScoreSubElement.Words) {
+                    if (this.headerGlyphs.has(ScoreSubElement.Music)) {
+                        const musicGlyph = this.headerGlyphs.get(ScoreSubElement.Music)!;
+                        if (musicGlyph.textAlign !== glyph.textAlign) {
+                            lineHeight = 0;
+                        }
+                    }
+                }
+
+                infoHeight += lineHeight;
+
+                scoreInfoGlyphs.push(glyph);
+            }
+        }
+
+        if (scoreInfoGlyphs.length > 0) {
+            infoHeight = Math.floor(infoHeight + 17);
+            e.width = this.scaledWidth;
+            e.height = infoHeight;
+            e.totalWidth = this.scaledWidth;
+            e.totalHeight = totalHeight < 0 ? y + e.height : totalHeight;
+            this.registerPartial(e, (canvas: ICanvas) => {
+                canvas.color = res.scoreInfoColor;
+                canvas.textAlign = TextAlign.Center;
+                for (const g of scoreInfoGlyphs) {
+                    g.paint(0, 0, canvas);
+                }
+            });
+            this._preSystemPartialIds.push(e.id);
+        }
+
+        return y + infoHeight;
+    }
+
+    private _resizeAndRenderScore(y: number, oldHeight: number): number {
+        // if we have a fixed number of bars per row, we only need to refit them.
+        const barsPerRowActive = this.getBarsPerSystem(0) > 0;
+        this._systemPartialIds = [];
+        if (barsPerRowActive) {
+            for (let i: number = 0; i < this._systems.length; i++) {
+                const system: StaffSystem = this._systems[i];
+                system.width = system.computedWidth;
+                this._fitSystem(system);
+                y += this._paintSystem(system, oldHeight);
+            }
+        } else {
+            // clear out staves during re-layout, this info is outdated during
+            // re-layout of the bars
+            for (const r of this._allMasterBarRenderers) {
+                for (const b of r.renderers) {
+                    b.afterReverted();
+                }
+            }
+
+            this._systems = [];
+            let currentIndex: number = 0;
+            const maxWidth: number = this._maxWidth;
+            let system: StaffSystem = this.createEmptyStaffSystem(this._systems.length);
+            system.x = this.pagePadding![0];
+            system.y = y;
+            while (currentIndex < this._allMasterBarRenderers.length) {
+                // if the current renderer still has space in the current system add it
+                // also force adding in case the system is empty
+                let renderers: MasterBarsRenderers | null = this._allMasterBarRenderers[currentIndex];
+
+                if (system.width + renderers!.width <= maxWidth || system.masterBarsRenderers.length === 0) {
+                    system.addMasterBarRenderers(this.renderer.tracks!, renderers!);
+                    // move to next bar
+                    currentIndex++;
+
+                    if (this._needsLineBreak(currentIndex)) {
+                        system.isFull = true;
+                    }
+                } else {
+                    // if we cannot wrap on the current bar, we remove the last bar
+                    // (this might even remove multiple ones until we reach a bar that can wrap);
+                    while (renderers && !renderers.canWrap && system.masterBarsRenderers.length > 1) {
+                        renderers = system.revertLastBar();
+                        currentIndex--;
+                    }
+                    // in case we do not have space, we create a new system
+                    system.isFull = true;
+                }
+
+                if (system.isFull) {
+                    system.isLast = this.lastBarIndex === system.lastBarIndex;
+                    this._systems.push(system);
+                    this._fitSystem(system);
+                    y += this._paintSystem(system, oldHeight);
+                    // note: we do not increase currentIndex here to have it added to the next system
+                    system = this.createEmptyStaffSystem(this._systems.length);
+                    system.x = this.pagePadding![0];
+                    system.y = y;
+                }
+            }
+            system.isLast = this.lastBarIndex === system.lastBarIndex;
+            // don't forget to finish the last system
+            this._fitSystem(system);
+            y += this._paintSystem(system, oldHeight);
+        }
+        return y;
+    }
+
+    private _layoutAndRenderScore(y: number, startIndex: number): number {
+        let currentBarIndex: number = startIndex;
+        const endBarIndex: number = this.lastBarIndex;
+
+        while (currentBarIndex <= endBarIndex) {
+            // create system and align set proper coordinates
+            const system: StaffSystem = this._createStaffSystem(currentBarIndex, endBarIndex);
+            this._systems.push(system);
+            system.x = this.pagePadding![0];
+            system.y = y;
+            currentBarIndex = system.lastBarIndex + 1;
+            // finalize system (sizing etc).
+            this._fitSystem(system);
+            Logger.debug(
+                this.name,
+                `Rendering partial from bar ${system.firstBarIndex} to ${system.lastBarIndex}`,
+                null
+            );
+            y += this._paintSystem(system, y);
+        }
+        return y;
+    }
+
+    private _paintSystem(system: StaffSystem, totalHeight: number): number {
+        // paint into canvas
+        const height: number = Math.floor(system.height);
+
+        const args: RenderFinishedEventArgs = new RenderFinishedEventArgs();
+        args.x = 0;
+        args.y = system.y;
+        args.totalWidth = this.scaledWidth;
+        args.totalHeight = totalHeight;
+        args.width = this.scaledWidth;
+        args.height = height;
+        args.firstMasterBarIndex = system.firstBarIndex;
+        args.lastMasterBarIndex = system.lastBarIndex;
+
+        system.buildBoundingsLookup(0, 0);
+        this.registerPartial(args, canvas => {
+            this.renderer.canvas!.color = this.renderer.settings.display.resources.mainGlyphColor;
+            this.renderer.canvas!.textAlign = TextAlign.Left;
+            // NOTE: we use this negation trick to make the system paint itself to 0/0 coordinates
+            // since we use partial drawing
+            system.paint(0, -(args.y / this.renderer.settings.display.scale), canvas);
+        });
+        this._systemPartialIds.push(args.id);
+
+        // calculate coordinates for next system
+        return height;
+    }
+
+    /**
+     * Realignes the bars in this line according to the available space
+     */
+    private _fitSystem(system: StaffSystem): void {
+        // If a bar added late in the assembly introduced a shorter note than earlier bars, the
+        // earlier bars' spring constants (and the cached system widths / totals) are stale.
+        // Reconcile now - it's a no-op when nothing changed.
+        system.reconcileMinDurationIfDirty();
+
+        if (system.isFull || system.width > this._maxWidth || this.renderer.settings.display.justifyLastSystem) {
+            this._scaleToWidth(system, this._maxWidth);
+        } else {
+            this._scaleToWidth(system, system.width);
+        }
+        system.finalizeSystem();
+    }
+
+    /**
+     * Whether the layout honours the model's {@link Bar.displayScale} when distributing staff width.
+     * When `true` (Parchment, Page with `SystemsLayoutMode.UseModelLayout`), bars are weighted by
+     * `displayScale`. When `false` (Page with `SystemsLayoutMode.Automatic`), `displayScale` is ignored
+     * and bars are weighted by their natural content width produced by the built-in spacing engine.
+     * Prefix/postfix overhead (clef, key sig, time sig, barlines) is treated as fixed in both modes.
+     */
+    protected abstract get shouldApplyBarScale(): boolean;
+
+    private _scaleToWidth(system: StaffSystem, width: number): void {
+        const staffWidth = width - system.accoladeWidth;
+        const shouldApplyBarScale = this.shouldApplyBarScale;
+
+        // Industry fixed-overhead model (Behind Bars, Dorico, Finale, Sibelius, MuseScore, Guitar Pro):
+        // prefix/postfix glyphs (clef, key sig, time sig, barlines) are treated as fixed overhead and the
+        // remaining staff width is distributed across bars by a per-bar weight.
+        //
+        //   distributable = staffWidth - totalFixedOverhead
+        //   contentShare  = distributable / sum(weight)
+        //   bar.width     = bar.maxFixedOverhead + weight * contentShare
+        //
+        // The weight depends on the layout mode:
+        //   - shouldApplyBarScale=true  -> weight = bar.displayScale (model-driven, matches Guitar Pro)
+        //                                  displayScale defaults to 1, so an unset value behaves identically
+        //                                  to an explicit 1 (GP omits the property when not customized).
+        //   - shouldApplyBarScale=false -> weight = natural content width (automatic, ignores displayScale)
+        //
+        // Per-bar maxFixedOverhead / maxContentWidth and the system-wide totals are maintained incrementally
+        // in StaffSystem._applyLayoutAndUpdateWidth / revertLastBar so this pass can apply directly.
+        const weightTotal = shouldApplyBarScale ? system.totalBarDisplayScale : system.totalContentWidth;
+        const distributable = Math.max(0, staffWidth - system.totalFixedOverhead);
+        const contentShare = weightTotal > 0 ? distributable / weightTotal : 0;
+
+        for (const s of system.allStaves) {
+            s.resetSharedLayoutData();
+
+            let w = 0;
+            for (let i = 0; i < s.barRenderers.length; i++) {
+                const renderer = s.barRenderers[i];
+                const mb = system.masterBarsRenderers[i];
+                renderer.x = w;
+                renderer.y = s.topPadding + s.topOverflow;
+
+                const weight = shouldApplyBarScale ? system.getBarDisplayScale(renderer) : mb.maxContentWidth;
+                const actualBarWidth = mb.maxFixedOverhead + weight * contentShare;
+
+                renderer.scaleToWidth(actualBarWidth);
+                w += renderer.width;
+            }
+        }
+        system.width = width;
+    }
+
+    protected abstract getBarsPerSystem(systemIndex: number): number;
+
+    private _createStaffSystem(currentBarIndex: number, endIndex: number): StaffSystem {
+        const system: StaffSystem = this.createEmptyStaffSystem(this._systems.length);
+        const barsPerRow: number = this.getBarsPerSystem(system.index);
+        const maxWidth: number = this._maxWidth;
+        const end: number = endIndex + 1;
+
+        let barIndex = currentBarIndex;
+        while (barIndex < end) {
+            if (this._barsFromPreviousSystem.length > 0) {
+                for (const renderer of this._barsFromPreviousSystem) {
+                    system.addMasterBarRenderers(this.renderer.tracks!, renderer);
+                    barIndex = renderer.lastMasterBarIndex;
+                }
+            } else {
+                const multiBarRestInfo = this.multiBarRestInfo;
+                const additionalMultiBarsRestBarIndices: number[] | null =
+                    multiBarRestInfo !== null && multiBarRestInfo.has(barIndex)
+                        ? multiBarRestInfo.get(barIndex)!
+                        : null;
+
+                const renderers = system.addBars(this.renderer.tracks!, barIndex, additionalMultiBarsRestBarIndices);
+                this._allMasterBarRenderers.push(renderers);
+                barIndex = renderers.lastMasterBarIndex;
+            }
+            this._barsFromPreviousSystem = [];
+            let systemIsFull: boolean = false;
+            // can bar placed in this line?
+            if (barsPerRow === -1 && system.width >= maxWidth && system.masterBarsRenderers.length !== 0) {
+                systemIsFull = true;
+            } else if (system.masterBarsRenderers.length === barsPerRow + 1) {
+                systemIsFull = true;
+            }
+            if (systemIsFull) {
+                let reverted = system.revertLastBar();
+                if (reverted) {
+                    this._barsFromPreviousSystem.push(reverted);
+                    while (reverted && !reverted.canWrap && system.masterBarsRenderers.length > 1) {
+                        reverted = system.revertLastBar();
+                        if (reverted) {
+                            this._barsFromPreviousSystem.push(reverted);
+                        }
+                    }
+                }
+                system.isFull = true;
+                system.isLast = false;
+                this._barsFromPreviousSystem.reverse();
+                return system;
+            }
+            if (this._needsLineBreak(barIndex)) {
+                system.isFull = true;
+                system.isLast = false;
+                return system;
+            }
+            system.x = 0;
+            barIndex++;
+        }
+        system.isLast = endIndex === system.lastBarIndex;
+        return system;
+    }
+
+    private _needsLineBreak(barIndex: number) {
+        let anyTrackNeedsLineBreak = false;
+        let allTracksNeedLineBreak = true;
+        for (const track of this.renderer.tracks!) {
+            if (track.lineBreaks && track.lineBreaks!.has(barIndex + 1)) {
+                anyTrackNeedsLineBreak = true;
+            } else {
+                allTracksNeedLineBreak = false;
+            }
+        }
+        return anyTrackNeedsLineBreak && allTracksNeedLineBreak;
+    }
+
+    private get _maxWidth(): number {
+        return this.scaledWidth - this.pagePadding![0] - this.pagePadding![2];
+    }
+}

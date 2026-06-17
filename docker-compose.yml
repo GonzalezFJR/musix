@@ -1,0 +1,84 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./apps/api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      DB_BACKEND: ${DB_BACKEND:-sql}
+      DYNAMODB_REGION: ${DYNAMODB_REGION:-eu-west-1}
+      DYNAMODB_ENDPOINT_URL: ${DYNAMODB_ENDPOINT_URL:-}
+      DYNAMODB_TABLE_PREFIX: ${DYNAMODB_TABLE_PREFIX:-musix_}
+      SECRET_KEY: ${SECRET_KEY}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES}
+      ALLOW_REGISTRATION: ${ALLOW_REGISTRATION}
+      AUTH_DISABLED: ${AUTH_DISABLED}
+      LANDING_ENABLED: ${LANDING_ENABLED:-false}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-local}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_REGION: ${S3_REGION:-eu-west-1}
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-}
+      S3_PREFIX: ${S3_PREFIX:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      SOUNDBANKS_DIR: /soundbanks
+    volumes:
+      - file-data:/data/files
+      # Bancos de sonido descargados a mano en el host (bind-mount, solo lectura).
+      # Carpeta independiente y gitignoreada; el render los busca en /soundbanks.
+      - ./soundbanks:/soundbanks:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: ./apps/web
+    restart: unless-stopped
+    depends_on:
+      - api
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+      - web
+
+volumes:
+  db-data:
+  file-data:
+  caddy-data:
+  caddy-config:

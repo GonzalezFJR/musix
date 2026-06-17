@@ -1,0 +1,21 @@
+# Caddy reverse proxy.
+# SITE_ADDRESS controla el comportamiento:
+#   - "http://localhost"  → HTTP plano, sin certificado (desarrollo local).
+#   - "musix.midominio.com" → HTTPS automático con Let's Encrypt (producción).
+{
+	email {$ACME_EMAIL}
+}
+
+{$SITE_ADDRESS} {
+	encode gzip zstd
+
+	# API → FastAPI
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	# Resto → frontend estático (Nginx dentro del contenedor web)
+	handle {
+		reverse_proxy web:80
+	}
+}

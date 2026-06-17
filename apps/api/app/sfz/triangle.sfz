@@ -1,0 +1,7 @@
+// Sintetizador Musix — onda triangular (CC0)
+<region>
+sample=*triangle
+ampeg_attack=0.008
+ampeg_decay=0.1
+ampeg_sustain=82
+ampeg_release=0.3
