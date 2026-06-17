@@ -20,7 +20,9 @@ class UserCreate(BaseModel):
 
 class UserRead(BaseModel):
     id: str
-    email: EmailStr
+    # Identificador de login: normalmente un email, pero el admin sembrado puede
+    # usar un nombre de usuario simple, así que no forzamos formato email aquí.
+    email: str
     role: str
     display_name: str
     author_name: str = ""
@@ -131,7 +133,7 @@ class ProjectRead(ProjectSummary):
 # ── Admin ────────────────────────────────────────────────────────
 class AdminUserSummary(BaseModel):
     id: str
-    email: EmailStr
+    email: str
     display_name: str
     role: str
     project_count: int = 0
