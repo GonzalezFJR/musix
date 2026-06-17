@@ -34,19 +34,10 @@ soundbanks/*
 .vscode/
 *.swp
 
-# Fork de AlphaTab: deps y artefactos generados
-vendor/alphatab/node_modules/
-vendor/alphatab/packages/*/node_modules/
-vendor/alphatab/packages/*/dist/
-vendor/alphatab/packages/alphatab/src/generated/
-vendor/alphatab/**/*.tgz
-# Repo git anidado del fork (upstream CoderLine/alphaTab): no se versiona dentro de musix;
-# el fuente del fork se vendoriza como ficheros normales (cumple MPL-2.0).
-vendor/alphatab/.git/
-# Fixtures de test del fork (no necesarios para construir el paquete; pesan ~50 MB).
-vendor/alphatab/**/test/
-vendor/alphatab/**/test-data/
-vendor/alphatab/**/test-results/
+# Fork de AlphaTab (vendor/): NO se versiona. Solo vive en local para poder
+# recompilar el .tgz cuando se toque el fork. La web consume el artefacto ya
+# construido apps/web/alphatab-fork.tgz (ese sí versionado). Ver docs/FORK.md.
+vendor/
 
 # Planificación interna (no se publica).
 PLAN.md

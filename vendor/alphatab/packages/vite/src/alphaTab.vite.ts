@@ -1,1 +1,0 @@
-export { alphaTab } from './alphaTabVitePlugin';

@@ -84,6 +84,58 @@ def ensure_table() -> None:
     print(f"✓ DynamoDB: tabla '{TABLE}' creada")
 
 
+GSIS = {
+    "GSI1": ("gsi1pk", "gsi1sk"),
+    "GSI3": ("gsi3pk", "gsi3sk"),
+}
+
+
+def _wait_indexes_active(ddb) -> None:
+    import time
+
+    for _ in range(120):
+        desc = ddb.describe_table(TableName=TABLE)["Table"]
+        idx = desc.get("GlobalSecondaryIndexes", [])
+        if desc["TableStatus"] == "ACTIVE" and all(i["IndexStatus"] == "ACTIVE" for i in idx):
+            return
+        time.sleep(5)
+    raise RuntimeError("Timeout esperando que los índices queden ACTIVE")
+
+
+def ensure_gsis() -> None:
+    """Añade GSI1/GSI3 a una tabla existente si faltan (uno por UpdateTable)."""
+    ddb = session.client("dynamodb")
+    desc = ddb.describe_table(TableName=TABLE)["Table"]
+    existing = {i["IndexName"] for i in desc.get("GlobalSecondaryIndexes", [])}
+    for name, (hk, rk) in GSIS.items():
+        if name in existing:
+            print(f"✓ DynamoDB: índice {name} ya existe")
+            continue
+        print(f"▶ Añadiendo índice {name} ({hk}/{rk})… (puede tardar)")
+        _wait_indexes_active(ddb)  # UpdateTable exige tabla ACTIVE
+        ddb.update_table(
+            TableName=TABLE,
+            AttributeDefinitions=[
+                {"AttributeName": hk, "AttributeType": "S"},
+                {"AttributeName": rk, "AttributeType": "S"},
+            ],
+            GlobalSecondaryIndexUpdates=[
+                {
+                    "Create": {
+                        "IndexName": name,
+                        "KeySchema": [
+                            {"AttributeName": hk, "KeyType": "HASH"},
+                            {"AttributeName": rk, "KeyType": "RANGE"},
+                        ],
+                        "Projection": {"ProjectionType": "ALL"},
+                    }
+                }
+            ],
+        )
+        _wait_indexes_active(ddb)
+        print(f"✓ DynamoDB: índice {name} creado y activo")
+
+
 def ensure_bucket() -> None:
     if not BUCKET:
         print("• S3: S3_BUCKET_NAME vacío → se omite (almacenamiento solo local)")
@@ -110,6 +162,7 @@ if __name__ == "__main__":
     print(f"Región={REGION} Tabla={TABLE} Bucket={BUCKET or '(ninguno)'}")
     try:
         ensure_table()
+        ensure_gsis()
         ensure_bucket()
     except Exception as exc:  # noqa: BLE001
         print(f"\n✗ FALLO: {exc}")
