@@ -36,7 +36,7 @@ COPY --from=sfizz-builder /usr/local/bin/sfizz_render /usr/local/bin/sfizz_rende
 # Instala las dependencias en una capa cacheable usando un paquete vacío como
 # stub (setuptools necesita que 'app' exista para generar los metadatos).
 COPY pyproject.toml ./
-RUN mkdir -p app/routers app/storage app/db && touch app/__init__.py app/routers/__init__.py app/storage/__init__.py app/db/__init__.py && pip install --upgrade pip && pip install . && rm -rf app
+RUN mkdir -p app/routers app/storage app/db app/services && touch app/__init__.py app/routers/__init__.py app/storage/__init__.py app/db/__init__.py app/services/__init__.py && pip install --upgrade pip && pip install . && rm -rf app
 
 # Copia el código real y reinstala solo el paquete (rápido, sin tocar deps).
 COPY app ./app
