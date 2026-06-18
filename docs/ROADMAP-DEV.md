@@ -15,8 +15,10 @@
 - ✅ **Fundaciones de audio + Fase 2 (base)**: modelo `AudioJob` + repos (SQLite/Dynamo),
   claves de storage, registro de engines + engine `probe`, orquestador `/api/audio`,
   worker (`python -m app.audio.worker`, servicio `audio-worker`) y vista **Audio Lab**.
-- ⏳ **Fases 3–6**: engines reales (librosa/essentia, demucs/audio-separator,
-  Basic Pitch/…); conversión MIDI→Musix.
+- ✅ **Fase 3 — Análisis**: engines `librosa` (tempo/tonalidad/espectrograma, verificado)
+  y `essentia` (best-effort según wheel). Ver [AUDIO-ENGINES.md](AUDIO-ENGINES.md).
+- ⏳ **Fases 4–6**: separación (demucs/audio-separator), transcripción (Basic Pitch/…),
+  conversión MIDI→Musix.
 - 🕒 **Fase 7** (diferida): asistente IA.
 
 ## Decisiones tomadas

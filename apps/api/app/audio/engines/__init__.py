@@ -10,14 +10,21 @@ from __future__ import annotations
 from typing import Optional
 
 from .base import Engine
+from .essentia_engine import EssentiaEngine
+from .librosa_engine import LibrosaEngine
 from .probe import ProbeEngine
 
 
 def _build_registry() -> dict[str, Engine]:
-    engines: list[Engine] = [ProbeEngine()]
-    # Engines opcionales (se importan de forma perezosa; si faltan sus deps, no se
-    # registran y simplemente no aparecen como disponibles).
-    # Fases 3–5: librosa, essentia, demucs, audio-separator, basic-pitch, …
+    # Los engines se instancian siempre (barato); sus dependencias pesadas se
+    # importan de forma perezosa en run(). `available()` (vía find_spec) refleja si
+    # están instaladas, así que un engine sin deps aparece como "no disponible".
+    # Fases 4–5 (pendientes): demucs, audio-separator, basic-pitch, …
+    engines: list[Engine] = [
+        ProbeEngine(),
+        LibrosaEngine(),
+        EssentiaEngine(),
+    ]
     return {e.id: e for e in engines}
 
 

@@ -30,9 +30,10 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Render de audio (SF2/MP3): FluidSynth + ffmpeg.
+# Render de audio (SF2/MP3): FluidSynth + ffmpeg. libsndfile1: lectura de audio
+# para librosa/soundfile.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends fluidsynth ffmpeg \
+    && apt-get install -y --no-install-recommends fluidsynth ffmpeg libsndfile1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Runtime de Node + el sidecar ya construido (copiados de la etapa anterior).
@@ -52,6 +53,12 @@ RUN pip install --no-deps .
 
 # yt-dlp: ingesta de audio desde YouTube en el Audio Lab (usa ffmpeg, ya instalado).
 RUN pip install yt-dlp
+
+# Engines de ANÁLISIS (Fase 3), CPU. librosa + matplotlib (espectrograma) son
+# fiables vía pip. Essentia depende de wheels que no siempre existen para la
+# plataforma: se intenta y, si falla, el engine queda "no disponible" (no rompe el build).
+RUN pip install librosa matplotlib soundfile
+RUN pip install essentia || echo "essentia no disponible en esta plataforma; engine deshabilitado"
 
 RUN mkdir -p /data/files
 
