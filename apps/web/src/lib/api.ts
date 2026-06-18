@@ -109,6 +109,8 @@ export interface PublicConfig {
   turnstile_site_key: string;
   google_enabled: boolean;
   registration_enabled: boolean;
+  // Modo local sin login: entrar directo como admin, ocultar pantallas de auth.
+  auth_disabled: boolean;
 }
 
 // ── Admin ──────────────────────────────────────────────────────

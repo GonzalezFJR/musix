@@ -72,12 +72,35 @@ Luego abre `http://localhost`. Para producción con HTTPS, pon tu dominio en `SI
 (ej. `musix.midominio.com`) y un email en `ACME_EMAIL` dentro de `.env`, y vuelve a
 ejecutar `./setup.sh` — Caddy obtiene el certificado Let's Encrypt automáticamente.
 
+### Despliegue LOCAL (SQLite + disco, sin AWS, sin login)
+
+Para correr todo en local sin DynamoDB ni S3 y sin pantalla de login (se entra
+directo como admin), usa el compose de desarrollo:
+
+```bash
+docker compose -f docker-compose.dev.yml up --build
+# → http://localhost  (entra directo como admin, sin login)
+```
+
+Esto levanta `api` + `web` + `caddy` con:
+
+- **Metadatos en SQLite** (`DB_BACKEND=sqlite`) — un fichero en el volumen `dev-data`.
+- **Ficheros en disco local** (`S3_BUCKET_NAME` vacío) — mismo volumen.
+- **Sin autenticación** (`AUTH_DISABLED=true`, `ALLOW_REGISTRATION=false`): toda
+  petición entra como el usuario admin `admin@local`.
+
+⚠️ No hay autenticación: **no usar esta configuración en producción.** El despliegue
+de producción sigue siendo `docker-compose.yml` (DynamoDB + S3 + login).
+
 ### Desarrollo (sin Docker para iterar rápido)
 
 ```bash
-# Backend
+# Backend (SQLite local + login desactivado)
 cd apps/api && python -m venv .venv && source .venv/bin/activate
-pip install -e . && uvicorn app.main:app --reload
+pip install -e .
+DB_BACKEND=sqlite SQLITE_PATH=./musix.db AUTH_DISABLED=true \
+  ALLOW_REGISTRATION=false S3_BUCKET_NAME= FILES_DIR=./data/files \
+  uvicorn app.main:app --reload
 
 # Frontend
 cd apps/web && npm install && npm run dev
@@ -122,11 +145,12 @@ en [`vendor/alphatab`](vendor/alphatab) — ver [docs/FORK.md](docs/FORK.md).
 
 ## ⚠️ Login desactivado (modo desarrollo)
 
-Durante el desarrollo, `AUTH_DISABLED=true`: la API trata toda petición como un
-usuario fijo `dev@example.com` (con rol `admin`, así `/docs` es accesible) y el
-frontend entra directo sin login. **Antes de
-exponer en producción**, poner `AUTH_DISABLED=false` en `.env` y reconstruir
-(`docker compose up -d --build api`).
+Con `AUTH_DISABLED=true` (activo en `docker-compose.dev.yml`), la API trata toda
+petición como el usuario admin sembrado `ADMIN_USERNAME` (por defecto `admin@local`,
+rol `admin`, así `/docs` y `/adminpanel` son accesibles) y el frontend entra directo
+sin pantalla de login. El registro queda deshabilitado (`ALLOW_REGISTRATION=false`).
+El despliegue de producción (`docker-compose.yml`) deja `AUTH_DISABLED` sin definir,
+por lo que el login con JWT funciona con normalidad.
 
 ## Estado
 

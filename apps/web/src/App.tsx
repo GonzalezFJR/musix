@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { useAuth } from "./auth/AuthContext";
+import { usePublicConfig } from "./config/PublicConfigContext";
 import AdminPanelPage from "./pages/AdminPanelPage";
 import AuthCallbackPage from "./pages/AuthCallbackPage";
 import ContactPage from "./pages/ContactPage";
@@ -24,6 +25,13 @@ function Protected({ children }: { children: JSX.Element }) {
   return user ? children : <Navigate to="/landing" replace />;
 }
 
+// En modo local sin login (auth_disabled), las pantallas de autenticación no
+// tienen sentido: se entra directo como admin, así que redirigimos al dashboard.
+function AuthRoute({ children }: { children: JSX.Element }) {
+  const { auth_disabled } = usePublicConfig();
+  return auth_disabled ? <Navigate to="/" replace /> : children;
+}
+
 // Solo accesible por administradores loggueados.
 function AdminProtected({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
@@ -36,11 +44,11 @@ export default function App() {
   return (
     <Routes>
       {/* Públicas */}
-      <Route path="/landing" element={<LandingPage />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/landing" element={<AuthRoute><LandingPage /></AuthRoute>} />
+      <Route path="/login" element={<AuthRoute><LoginPage /></AuthRoute>} />
+      <Route path="/register" element={<AuthRoute><RegisterPage /></AuthRoute>} />
+      <Route path="/forgot-password" element={<AuthRoute><ForgotPasswordPage /></AuthRoute>} />
+      <Route path="/reset-password" element={<AuthRoute><ResetPasswordPage /></AuthRoute>} />
       <Route path="/contact" element={<ContactPage />} />
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
 

@@ -33,7 +33,18 @@ class Settings(BaseSettings):
     # Orígenes permitidos por CORS (coma-separados).
     allowed_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
-    # ── DynamoDB (backend único de metadatos, single-table) ───────
+    # ── Backend de metadatos ──────────────────────────────────────
+    # "dynamodb" (producción / AWS) | "sqlite" (desarrollo local, un fichero).
+    db_backend: str = "dynamodb"
+    # Ruta del fichero SQLite cuando db_backend == "sqlite".
+    sqlite_path: Path = Path("/data/musix.db")
+
+    # ── Modo local sin autenticación ──────────────────────────────
+    # Si está activo, se omite el login y toda petición entra como el usuario
+    # admin sembrado (desarrollo local). NO usar en producción.
+    auth_disabled: bool = False
+
+    # ── DynamoDB (backend de metadatos en producción, single-table) ─
     aws_region: str = "eu-west-1"
     aws_access_key: Optional[str] = None
     aws_secret_key: Optional[str] = None

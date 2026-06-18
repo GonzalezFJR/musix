@@ -19,7 +19,10 @@ settings = get_settings()
 
 
 def init_db() -> None:
-    _ensure_table()
+    # SQLite (dev local) crea su esquema en el constructor de SqliteRepositories;
+    # solo DynamoDB necesita asegurar la tabla aquí.
+    if settings.db_backend != "sqlite":
+        _ensure_table()
     _ensure_admin_user()
 
 

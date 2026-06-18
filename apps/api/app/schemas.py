@@ -76,6 +76,9 @@ class PublicConfig(BaseModel):
     turnstile_site_key: str
     google_enabled: bool
     registration_enabled: bool
+    # Modo local sin login: el frontend entra directo como admin y oculta
+    # las pantallas de autenticación.
+    auth_disabled: bool = False
 
 
 # ── Carpetas ─────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ const DEFAULT_CONFIG: PublicConfig = {
   turnstile_site_key: "1x00000000000000000000AA",
   google_enabled: false,
   registration_enabled: true,
+  auth_disabled: false,
 };
 
 const PublicConfigContext = createContext<PublicConfig>(DEFAULT_CONFIG);

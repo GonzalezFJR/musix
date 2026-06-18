@@ -79,4 +79,5 @@ def public_config() -> PublicConfig:
         turnstile_site_key=settings.captcha_site_key,
         google_enabled=settings.google_enabled,
         registration_enabled=settings.allow_registration,
+        auth_disabled=settings.auth_disabled,
     )

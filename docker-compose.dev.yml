@@ -1,0 +1,71 @@
+# Despliegue LOCAL de desarrollo.
+#
+# Diferencias frente a docker-compose.yml (producción):
+#   • Metadatos en SQLite (un fichero en el volumen `dev-data`), sin DynamoDB.
+#   • Ficheros en disco local (volumen `dev-data`), sin S3.
+#   • AUTH_DISABLED=true → sin login ni registro: se entra directo como admin.
+#
+# Uso:
+#   docker compose -f docker-compose.dev.yml up --build
+#   → abrir http://localhost
+#
+# NO usar esta configuración en producción (no hay autenticación).
+services:
+  api:
+    build:
+      context: ./apps/api
+    restart: unless-stopped
+    environment:
+      # ── Backend de metadatos: SQLite local ──
+      DB_BACKEND: sqlite
+      SQLITE_PATH: /data/musix.db
+      # ── Almacenamiento: disco local (sin S3) ──
+      S3_BUCKET_NAME: ""
+      FILES_DIR: /data/files
+      SOUNDBANKS_DIR: /soundbanks
+      # ── Modo local sin autenticación: entrar directo como admin ──
+      AUTH_DISABLED: "true"
+      ALLOW_REGISTRATION: "false"
+      ADMIN_USERNAME: admin@local
+      ADMIN_PASSWORD: admin
+      # ── Seguridad / flujo público (valores de dev, no secretos) ──
+      SECRET_KEY: dev-insecure-secret-change-me-please-32b+
+      ACCESS_TOKEN_EXPIRE_MINUTES: "10080"
+      PUBLIC_BASE_URL: http://localhost
+      ALLOWED_ORIGINS: http://localhost,http://127.0.0.1
+    volumes:
+      # Persistencia local: SQLite (/data/musix.db) + ficheros (/data/files).
+      - dev-data:/data
+      # Soundbanks: lo que haya en ./soundbanks del host (sin sync desde S3).
+      - ./soundbanks:/soundbanks
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: ./apps/web
+    restart: unless-stopped
+    depends_on:
+      - api
+
+  # Proxy local en :80 (sin TLS/ACME): / → web, /api/* → api.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+      - web
+
+volumes:
+  dev-data:
+  caddy-data:
+  caddy-config:

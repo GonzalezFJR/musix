@@ -30,6 +30,14 @@ __all__ = [
 
 @lru_cache
 def get_repositories() -> Repositories:
+    from ..config import get_settings
+
+    settings = get_settings()
+    if settings.db_backend == "sqlite":
+        from .sqlite import SqliteRepositories
+
+        return SqliteRepositories(settings.sqlite_path)
+
     from .dynamo import DynamoRepositories
 
     return DynamoRepositories()
