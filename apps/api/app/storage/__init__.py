@@ -9,7 +9,15 @@ from __future__ import annotations
 from functools import lru_cache
 
 from ..config import get_settings
-from .base import StorageBackend, original_key, project_prefix, score_key
+from .base import (
+    StorageBackend,
+    audio_input_key,
+    audio_output_key,
+    audio_prefix,
+    original_key,
+    project_prefix,
+    score_key,
+)
 
 __all__ = [
     "StorageBackend",
@@ -17,6 +25,9 @@ __all__ = [
     "project_prefix",
     "score_key",
     "original_key",
+    "audio_prefix",
+    "audio_input_key",
+    "audio_output_key",
 ]
 
 

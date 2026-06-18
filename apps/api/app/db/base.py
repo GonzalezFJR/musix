@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Optional, Protocol
 
 from ..models import (
+    AudioJob,
     ContactMessage,
     Folder,
     GlobalStats,
@@ -79,6 +80,18 @@ class StatsRepository(Protocol):
     ) -> None: ...
 
 
+class JobRepository(Protocol):
+    def create(self, job: AudioJob) -> AudioJob: ...
+    def get_owned(self, job_id: str, owner_id: str) -> Optional[AudioJob]: ...
+    def list_for_owner(
+        self, owner_id: str, limit: int = 50, cursor: Optional[str] = None
+    ) -> tuple[list[AudioJob], Optional[str]]: ...
+    def update(self, job: AudioJob) -> AudioJob: ...
+    def delete(self, job: AudioJob) -> None: ...
+    # Worker: toma atómicamente el siguiente job en cola (queued → running).
+    def claim_next(self) -> Optional[AudioJob]: ...
+
+
 class Repositories(Protocol):
     users: UserRepository
     folders: FolderRepository
@@ -87,3 +100,4 @@ class Repositories(Protocol):
     reset_tokens: ResetTokenRepository
     contacts: ContactRepository
     stats: StatsRepository
+    jobs: JobRepository

@@ -31,6 +31,7 @@ from boto3.dynamodb.conditions import Attr, Key
 
 from ..config import get_settings
 from ..models import (
+    AudioJob,
     ContactMessage,
     Folder,
     GlobalStats,
@@ -572,6 +573,112 @@ class _DynamoStatsRepository:
         return stats
 
 
+# ── Audio jobs (Audio Lab) ───────────────────────────────────────
+#   job  pk=USER#{owner}  sk=AJOB#{id}   type=job
+#   cola: gsi1pk="JOBQ" gsi1sk={id}  (sparse: solo mientras status=="queued")
+def _job_item(j: AudioJob) -> dict:
+    item = {
+        "pk": f"USER#{j.owner_id}",
+        "sk": f"AJOB#{j.id}",
+        "type": "job",
+        "id": j.id,
+        "owner_id": j.owner_id,
+        "kind": j.kind,
+        "engine": j.engine,
+        "status": j.status,
+        "source_kind": j.source_kind,
+        "source_ref": j.source_ref,
+        "input_filename": j.input_filename,
+        "params": json.dumps(j.params or {}),
+        "outputs": json.dumps(j.outputs or []),
+        "result": json.dumps(j.result or {}),
+        "error": j.error,
+        "logs": j.logs,
+        "created_at": _iso(j.created_at),
+        "updated_at": _iso(j.updated_at),
+    }
+    if j.status == "queued":
+        item["gsi1pk"] = "JOBQ"
+        item["gsi1sk"] = j.id
+    return item
+
+
+def _job_from_item(it: dict) -> AudioJob:
+    return AudioJob(
+        id=it["id"], owner_id=it["owner_id"], kind=it["kind"], engine=it["engine"],
+        status=it.get("status", "queued"), source_kind=it.get("source_kind", "upload"),
+        source_ref=it.get("source_ref", ""), input_filename=it.get("input_filename", ""),
+        params=json.loads(it.get("params") or "{}"),
+        outputs=json.loads(it.get("outputs") or "[]"),
+        result=json.loads(it.get("result") or "{}"),
+        error=it.get("error", ""), logs=it.get("logs", ""),
+        created_at=_dt(it.get("created_at")), updated_at=_dt(it.get("updated_at")),
+    )
+
+
+class _DynamoJobRepository:
+    def __init__(self, table):
+        self._t = table
+
+    def create(self, job: AudioJob) -> AudioJob:
+        self._t.put_item(Item=_job_item(job))
+        return job
+
+    def get_owned(self, job_id: str, owner_id: str) -> Optional[AudioJob]:
+        resp = self._t.get_item(Key={"pk": f"USER#{owner_id}", "sk": f"AJOB#{job_id}"})
+        item = resp.get("Item")
+        return _job_from_item(item) if item else None
+
+    def list_for_owner(
+        self, owner_id: str, limit: int = 50, cursor: Optional[str] = None
+    ) -> tuple[list[AudioJob], Optional[str]]:
+        kwargs: dict = {
+            "KeyConditionExpression": Key("pk").eq(f"USER#{owner_id}") & Key("sk").begins_with("AJOB#"),
+            "ScanIndexForward": False,
+            "Limit": limit,
+        }
+        if cursor:
+            kwargs["ExclusiveStartKey"] = json.loads(base64.urlsafe_b64decode(cursor.encode()).decode())
+        resp = self._t.query(**kwargs)
+        jobs = [_job_from_item(it) for it in resp.get("Items", [])]
+        last = resp.get("LastEvaluatedKey")
+        next_cursor = base64.urlsafe_b64encode(json.dumps(last).encode()).decode() if last else None
+        return jobs, next_cursor
+
+    def update(self, job: AudioJob) -> AudioJob:
+        # put_item sobrescribe el item completo: si status deja de ser "queued",
+        # gsi1pk/gsi1sk desaparecen y el job sale de la cola (índice sparse).
+        self._t.put_item(Item=_job_item(job))
+        return job
+
+    def delete(self, job: AudioJob) -> None:
+        self._t.delete_item(Key={"pk": f"USER#{job.owner_id}", "sk": f"AJOB#{job.id}"})
+
+    def claim_next(self) -> Optional[AudioJob]:
+        resp = self._t.query(
+            IndexName="GSI1",
+            KeyConditionExpression=Key("gsi1pk").eq("JOBQ"),
+            ScanIndexForward=True,
+            Limit=1,
+        )
+        items = resp.get("Items", [])
+        if not items:
+            return None
+        job = _job_from_item(items[0])
+        try:
+            self._t.update_item(
+                Key={"pk": f"USER#{job.owner_id}", "sk": f"AJOB#{job.id}"},
+                UpdateExpression="SET #s = :running REMOVE gsi1pk, gsi1sk",
+                ConditionExpression=Attr("status").eq("queued"),
+                ExpressionAttributeNames={"#s": "status"},
+                ExpressionAttributeValues={":running": "running"},
+            )
+        except self._t.meta.client.exceptions.ConditionalCheckFailedException:
+            return None  # otro worker lo tomó primero
+        job.status = "running"
+        return job
+
+
 class DynamoRepositories:
     def __init__(self) -> None:
         table = _table()
@@ -582,3 +689,4 @@ class DynamoRepositories:
         self.reset_tokens = _DynamoResetTokenRepository(table)
         self.contacts = _DynamoContactRepository(table)
         self.stats = _DynamoStatsRepository(table)
+        self.jobs = _DynamoJobRepository(table)

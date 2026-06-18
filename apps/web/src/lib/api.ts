@@ -161,6 +161,37 @@ export interface AdminContactList {
   next_cursor: string | null;
 }
 
+// ── Audio Lab ──────────────────────────────────────────────────
+export type AudioKind = "analysis" | "separation" | "transcription";
+export type AudioJobStatus = "queued" | "running" | "done" | "error";
+export interface AudioEngine {
+  id: string;
+  kind: AudioKind;
+  label: string;
+  needs_gpu: boolean;
+  available: boolean;
+  params_schema: Record<string, unknown>;
+}
+export interface AudioOutput {
+  name: string;
+  kind: string;
+  meta: Record<string, unknown>;
+}
+export interface AudioJob {
+  id: string;
+  kind: AudioKind;
+  engine: string;
+  status: AudioJobStatus;
+  source_kind: "upload" | "youtube";
+  input_filename: string;
+  params: Record<string, unknown>;
+  outputs: AudioOutput[];
+  result: Record<string, unknown>;
+  error: string;
+  created_at: string;
+  updated_at: string;
+}
+
 // URL para iniciar el login con Google (redirige el navegador completo).
 export const googleLoginUrl = "/api/auth/google/login";
 
@@ -321,5 +352,42 @@ export const api = {
     const q = new URLSearchParams({ limit: String(limit) });
     if (cursor) q.set("cursor", cursor);
     return request<AdminContactList>(`/admin/contacts?${q}`);
+  },
+
+  // ── Audio Lab ────────────────────────────────────────────────
+  audioEngines() {
+    return request<AudioEngine[]>("/audio/engines");
+  },
+  listAudioJobs() {
+    return request<{ jobs: AudioJob[]; next_cursor: string | null }>("/audio/jobs");
+  },
+  getAudioJob(id: string) {
+    return request<AudioJob>(`/audio/jobs/${id}`);
+  },
+  async createAudioJob(input: {
+    kind: AudioKind;
+    engine: string;
+    params?: Record<string, unknown>;
+    file?: File | null;
+    youtubeUrl?: string;
+  }) {
+    const form = new FormData();
+    form.append("kind", input.kind);
+    form.append("engine", input.engine);
+    form.append("params", JSON.stringify(input.params ?? {}));
+    if (input.file) form.append("file", input.file);
+    if (input.youtubeUrl) form.append("youtube_url", input.youtubeUrl);
+    return request<AudioJob>("/audio/jobs", { method: "POST", body: form });
+  },
+  runAudioJob(id: string) {
+    return request<AudioJob>(`/audio/jobs/${id}/run`, { method: "POST" });
+  },
+  deleteAudioJob(id: string) {
+    return request<void>(`/audio/jobs/${id}`, { method: "DELETE" });
+  },
+  // URL de descarga de un artefacto (incluye el token como query no es posible aquí;
+  // los artefactos se sirven con auth Bearer vía fetch en el componente).
+  audioOutputPath(id: string, name: string) {
+    return `/api/audio/jobs/${id}/outputs/${encodeURIComponent(name)}`;
   },
 };

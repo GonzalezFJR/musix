@@ -116,6 +116,42 @@ class ScoreOpsResponse(BaseModel):
     results: list[dict] = []
 
 
+# ── Audio Lab (análisis / separación / transcripción) ───────────
+class AudioOutput(BaseModel):
+    name: str
+    kind: str
+    meta: dict = {}
+
+
+class AudioJobRead(BaseModel):
+    id: str
+    kind: str
+    engine: str
+    status: str
+    source_kind: str
+    input_filename: str = ""
+    params: dict = {}
+    outputs: list[AudioOutput] = []
+    result: dict = {}
+    error: str = ""
+    created_at: datetime
+    updated_at: datetime
+
+
+class AudioJobList(BaseModel):
+    jobs: list[AudioJobRead]
+    next_cursor: Optional[str] = None
+
+
+class AudioEngineInfo(BaseModel):
+    id: str
+    kind: str
+    label: str
+    needs_gpu: bool
+    available: bool
+    params_schema: dict = {}
+
+
 # ── Carpetas ─────────────────────────────────────────────────────
 class FolderCreate(BaseModel):
     name: str

@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
 import { usePublicConfig } from "./config/PublicConfigContext";
 import AdminPanelPage from "./pages/AdminPanelPage";
+import AudioLabPage from "./pages/AudioLabPage";
 import AuthCallbackPage from "./pages/AuthCallbackPage";
 import ContactPage from "./pages/ContactPage";
 import DashboardPage from "./pages/DashboardPage";
@@ -74,6 +75,14 @@ export default function App() {
         element={
           <Protected>
             <SettingsPage />
+          </Protected>
+        }
+      />
+      <Route
+        path="/audiolab"
+        element={
+          <Protected>
+            <AudioLabPage />
           </Protected>
         }
       />

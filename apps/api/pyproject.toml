@@ -24,4 +24,4 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["app", "app.routers", "app.storage", "app.db", "app.services"]
+packages = ["app", "app.routers", "app.storage", "app.db", "app.services", "app.audio", "app.audio.engines"]

@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Optional
 
 from ..models import (
+    AudioJob,
     ContactMessage,
     Folder,
     GlobalStats,
@@ -28,6 +29,7 @@ from ..models import (
     PasswordResetToken,
     Project,
     User,
+    utcnow,
 )
 
 _SCHEMA = """
@@ -91,6 +93,25 @@ CREATE TABLE IF NOT EXISTS contacts (
     body       TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS audio_jobs (
+    id            TEXT PRIMARY KEY,
+    owner_id      TEXT NOT NULL,
+    kind          TEXT NOT NULL,
+    engine        TEXT NOT NULL,
+    status        TEXT NOT NULL DEFAULT 'queued',
+    source_kind   TEXT NOT NULL DEFAULT 'upload',
+    source_ref    TEXT NOT NULL DEFAULT '',
+    input_filename TEXT NOT NULL DEFAULT '',
+    params        TEXT NOT NULL DEFAULT '{}',
+    outputs       TEXT NOT NULL DEFAULT '[]',
+    result        TEXT NOT NULL DEFAULT '{}',
+    error         TEXT NOT NULL DEFAULT '',
+    logs          TEXT NOT NULL DEFAULT '',
+    created_at    TEXT NOT NULL,
+    updated_at    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_jobs_owner ON audio_jobs(owner_id);
+CREATE INDEX IF NOT EXISTS idx_jobs_status ON audio_jobs(status, created_at);
 CREATE TABLE IF NOT EXISTS stats (
     pk            TEXT PRIMARY KEY,
     user_count    INTEGER NOT NULL DEFAULT 0,
@@ -556,6 +577,110 @@ class _StatsRepository:
         return stats
 
 
+class _JobRepository:
+    def __init__(self, db: "_Db"):
+        self._db = db
+
+    @staticmethod
+    def _from_row(r: sqlite3.Row) -> AudioJob:
+        return AudioJob(
+            id=r["id"],
+            owner_id=r["owner_id"],
+            kind=r["kind"],
+            engine=r["engine"],
+            status=r["status"],
+            source_kind=r["source_kind"],
+            source_ref=r["source_ref"] or "",
+            input_filename=r["input_filename"] or "",
+            params=json.loads(r["params"] or "{}"),
+            outputs=json.loads(r["outputs"] or "[]"),
+            result=json.loads(r["result"] or "{}"),
+            error=r["error"] or "",
+            logs=r["logs"] or "",
+            created_at=_dt(r["created_at"]),
+            updated_at=_dt(r["updated_at"]),
+        )
+
+    @staticmethod
+    def _params(j: AudioJob) -> dict:
+        return {
+            "id": j.id, "owner_id": j.owner_id, "kind": j.kind, "engine": j.engine,
+            "status": j.status, "source_kind": j.source_kind, "source_ref": j.source_ref,
+            "input_filename": j.input_filename, "params": json.dumps(j.params or {}),
+            "outputs": json.dumps(j.outputs or []), "result": json.dumps(j.result or {}),
+            "error": j.error, "logs": j.logs,
+            "created_at": _iso(j.created_at), "updated_at": _iso(j.updated_at),
+        }
+
+    def create(self, job: AudioJob) -> AudioJob:
+        with self._db.lock, self._db.conn:
+            self._db.conn.execute(
+                """INSERT INTO audio_jobs (id, owner_id, kind, engine, status, source_kind,
+                    source_ref, input_filename, params, outputs, result, error, logs,
+                    created_at, updated_at)
+                   VALUES (:id, :owner_id, :kind, :engine, :status, :source_kind, :source_ref,
+                    :input_filename, :params, :outputs, :result, :error, :logs,
+                    :created_at, :updated_at)""",
+                self._params(job),
+            )
+        return job
+
+    def get_owned(self, job_id: str, owner_id: str) -> Optional[AudioJob]:
+        with self._db.lock:
+            row = self._db.conn.execute(
+                "SELECT * FROM audio_jobs WHERE id = ? AND owner_id = ?", (job_id, owner_id)
+            ).fetchone()
+        return self._from_row(row) if row else None
+
+    def list_for_owner(
+        self, owner_id: str, limit: int = 50, cursor: Optional[str] = None
+    ) -> tuple[list[AudioJob], Optional[str]]:
+        offset = _decode_cursor(cursor)
+        with self._db.lock:
+            rows = self._db.conn.execute(
+                "SELECT * FROM audio_jobs WHERE owner_id = ? ORDER BY id DESC LIMIT ? OFFSET ?",
+                (owner_id, limit + 1, offset),
+            ).fetchall()
+        jobs = [self._from_row(r) for r in rows[:limit]]
+        next_cursor = _encode_cursor(offset + limit) if len(rows) > limit else None
+        return jobs, next_cursor
+
+    def update(self, job: AudioJob) -> AudioJob:
+        params = self._params(job)
+        with self._db.lock, self._db.conn:
+            self._db.conn.execute(
+                """UPDATE audio_jobs SET status=:status, source_ref=:source_ref,
+                    input_filename=:input_filename, params=:params, outputs=:outputs,
+                    result=:result, error=:error, logs=:logs, updated_at=:updated_at
+                   WHERE id=:id""",
+                params,
+            )
+        return job
+
+    def delete(self, job: AudioJob) -> None:
+        with self._db.lock, self._db.conn:
+            self._db.conn.execute("DELETE FROM audio_jobs WHERE id = ?", (job.id,))
+
+    def claim_next(self) -> Optional[AudioJob]:
+        # Toma atómica del job más antiguo en cola (queued → running).
+        with self._db.lock, self._db.conn:
+            row = self._db.conn.execute(
+                "SELECT * FROM audio_jobs WHERE status = 'queued' ORDER BY id ASC LIMIT 1"
+            ).fetchone()
+            if not row:
+                return None
+            job = self._from_row(row)
+            job.status = "running"
+            job.updated_at = utcnow()
+            cur = self._db.conn.execute(
+                "UPDATE audio_jobs SET status='running', updated_at=? WHERE id=? AND status='queued'",
+                (_iso(job.updated_at), job.id),
+            )
+            if cur.rowcount == 0:
+                return None  # otro worker lo tomó primero
+        return job
+
+
 # ── Conexión / contenedor ────────────────────────────────────────
 class _Db:
     """Conexión SQLite compartida + lock. `bump` actualiza contadores agregados.
@@ -613,3 +738,4 @@ class SqliteRepositories:
         self.reset_tokens = _ResetTokenRepository(db)
         self.contacts = _ContactRepository(db)
         self.stats = _StatsRepository(db)
+        self.jobs = _JobRepository(db)

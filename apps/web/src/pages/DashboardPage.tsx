@@ -194,6 +194,15 @@ export default function DashboardPage() {
               </Link>
             </Tooltip>
           )}
+          <Tooltip label="Audio Lab" side="bottom">
+            <Link
+              to="/audiolab"
+              aria-label="Audio Lab"
+              className="flex h-9 w-9 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-ink-700 hover:text-accent"
+            >
+              <Icon name="music" size={18} />
+            </Link>
+          </Tooltip>
           <Tooltip label="Ajustes" side="bottom">
             <Link
               to="/settings"

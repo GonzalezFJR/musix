@@ -9,6 +9,16 @@
 > DynamoDB + S3 + login) no cambia de comportamiento: cada capacidad nueva va
 > detrás de flags o servicios opcionales.
 
+## Estado
+
+- ✅ **Fase 1 — Score API**: sidecar AlphaTab + `/api/score` (ver [SCORE-API.md](SCORE-API.md)).
+- ✅ **Fundaciones de audio + Fase 2 (base)**: modelo `AudioJob` + repos (SQLite/Dynamo),
+  claves de storage, registro de engines + engine `probe`, orquestador `/api/audio`,
+  worker (`python -m app.audio.worker`, servicio `audio-worker`) y vista **Audio Lab**.
+- ⏳ **Fases 3–6**: engines reales (librosa/essentia, demucs/audio-separator,
+  Basic Pitch/…); conversión MIDI→Musix.
+- 🕒 **Fase 7** (diferida): asistente IA.
+
 ## Decisiones tomadas
 
 - **Cómputo:** CPU en local por ahora. Los engines pesados (separación/transcripción

@@ -50,6 +50,9 @@ RUN mkdir -p app/routers app/storage app/db app/services \
 COPY apps/api/app ./app
 RUN pip install --no-deps .
 
+# yt-dlp: ingesta de audio desde YouTube en el Audio Lab (usa ffmpeg, ya instalado).
+RUN pip install yt-dlp
+
 RUN mkdir -p /data/files
 
 EXPOSE 8000

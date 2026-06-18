@@ -114,6 +114,38 @@ class ContactMessage(BaseModel):
     created_at: datetime = Field(default_factory=utcnow)
 
 
+class AudioJob(BaseModel):
+    """Trabajo del Audio Lab: análisis / separación / transcripción de audio.
+
+    Es asíncrono: se crea en estado `queued`, un worker lo toma (`running`) y al
+    terminar queda en `done` o `error`. El audio de entrada y los artefactos de
+    salida viven en el almacenamiento (no en la BD); aquí solo van referencias.
+    """
+
+    id: str = Field(default_factory=new_id)
+    owner_id: str
+    # analysis | separation | transcription
+    kind: str
+    # id del engine seleccionado (p. ej. "probe", "librosa", "demucs", "basic-pitch").
+    engine: str
+    # queued | running | done | error
+    status: str = "queued"
+    # upload | youtube
+    source_kind: str = "upload"
+    # clave de storage del input (upload) o URL (youtube, hasta que se descarga).
+    source_ref: str = ""
+    input_filename: str = ""
+    params: dict = Field(default_factory=dict)
+    # Artefactos: [{name, key, kind, meta}]. `key` es la clave en storage.
+    outputs: list[dict] = Field(default_factory=list)
+    # Resumen estructurado del resultado (p. ej. tempo/tonalidad para análisis).
+    result: dict = Field(default_factory=dict)
+    error: str = ""
+    logs: str = ""
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+
 class GlobalStats(BaseModel):
     """Contadores agregados para el panel de admin."""
 

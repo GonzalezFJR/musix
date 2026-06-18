@@ -46,3 +46,18 @@ def score_key(user_id: str, project_id: str) -> str:
 
 def original_key(user_id: str, project_id: str, ext: str) -> str:
     return f"{project_prefix(user_id, project_id)}/original{ext}"
+
+
+# ── Audio Lab: análisis / separación / transcripción ─────────────
+#   users/{user_id}/audio/{job_id}/input{ext}
+#   users/{user_id}/audio/{job_id}/<artefacto>   (stems, .mid, analysis.json, …)
+def audio_prefix(user_id: str, job_id: str) -> str:
+    return f"users/{user_id}/audio/{job_id}"
+
+
+def audio_input_key(user_id: str, job_id: str, ext: str) -> str:
+    return f"{audio_prefix(user_id, job_id)}/input{ext}"
+
+
+def audio_output_key(user_id: str, job_id: str, name: str) -> str:
+    return f"{audio_prefix(user_id, job_id)}/{name}"

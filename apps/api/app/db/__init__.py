@@ -8,6 +8,7 @@ from .base import (
     ContactRepository,
     EventRepository,
     FolderRepository,
+    JobRepository,
     ProjectRepository,
     Repositories,
     ResetTokenRepository,
@@ -24,6 +25,7 @@ __all__ = [
     "ResetTokenRepository",
     "ContactRepository",
     "StatsRepository",
+    "JobRepository",
     "get_repositories",
 ]
 
