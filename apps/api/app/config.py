@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     # Ruta del fichero SQLite cuando db_backend == "sqlite".
     sqlite_path: Path = Path("/data/musix.db")
 
+    # ── Sidecar score-engine (Node + AlphaTab, fuente de verdad de .mu6) ─
+    score_engine_dir: Path = Path("/score-engine")
+    node_bin: str = "node"
+
     # ── Modo local sin autenticación ──────────────────────────────
     # Si está activo, se omite el login y toda petición entra como el usuario
     # admin sembrado (desarrollo local). NO usar en producción.

@@ -1,0 +1,56 @@
+# Imagen de DESARROLLO del backend (rama dev).
+#
+# Igual que el backend de producción pero con dos diferencias:
+#   • Incluye Node + el sidecar `score-engine` (AlphaTab) para la Score API.
+#   • Omite la compilación de sfizz (render SFZ) para builds rápidos; FluidSynth y
+#     ffmpeg sí están, así que el render SF2/MP3 funciona. (sfizz es opcional en
+#     runtime: render.py lo detecta con shutil.which.)
+#
+# El contexto de build es la RAÍZ del repo (necesita apps/api, apps/score-engine y
+# apps/web/alphatab-fork.tgz). Ver docker-compose.dev.yml.
+
+# ── Etapa 1: construir el sidecar score-engine (Node + AlphaTab) ──
+FROM node:20-bookworm-slim AS score-engine
+WORKDIR /score-engine
+COPY apps/score-engine/package.json ./package.json
+# El sidecar depende del fork de AlphaTab empaquetado en la web.
+COPY apps/web/alphatab-fork.tgz /tmp/alphatab-fork.tgz
+RUN sed -i 's#file:../web/alphatab-fork.tgz#file:/tmp/alphatab-fork.tgz#' package.json \
+    && npm install --omit=dev --no-audit --no-fund
+COPY apps/score-engine/src ./src
+
+# ── Etapa 2: imagen final (Python + Node runtime + sidecar) ───────
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    SCORE_ENGINE_DIR=/score-engine \
+    NODE_BIN=node
+
+WORKDIR /app
+
+# Render de audio (SF2/MP3): FluidSynth + ffmpeg.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends fluidsynth ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Runtime de Node + el sidecar ya construido (copiados de la etapa anterior).
+COPY --from=score-engine /usr/local/bin/node /usr/local/bin/node
+COPY --from=score-engine /usr/local/lib/node_modules /usr/local/lib/node_modules
+COPY --from=score-engine /score-engine /score-engine
+
+# Deps Python (capa cacheable con stub de paquete).
+COPY apps/api/pyproject.toml ./
+RUN mkdir -p app/routers app/storage app/db app/services \
+    && touch app/__init__.py app/routers/__init__.py app/storage/__init__.py app/db/__init__.py app/services/__init__.py \
+    && pip install --upgrade pip && pip install . && rm -rf app
+
+# Código real.
+COPY apps/api/app ./app
+RUN pip install --no-deps .
+
+RUN mkdir -p /data/files
+
+EXPOSE 8000
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

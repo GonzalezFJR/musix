@@ -13,7 +13,10 @@
 services:
   api:
     build:
-      context: ./apps/api
+      # Contexto = raíz del repo: el Dockerfile.dev necesita apps/api,
+      # apps/score-engine y apps/web/alphatab-fork.tgz (sidecar AlphaTab).
+      context: .
+      dockerfile: apps/api/Dockerfile.dev
     restart: unless-stopped
     environment:
       # ── Backend de metadatos: SQLite local ──

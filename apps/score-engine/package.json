@@ -1,0 +1,16 @@
+{
+  "name": "musix-score-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Sidecar headless: AlphaTab como fuente de verdad para crear/validar/editar partituras .mu6",
+  "bin": {
+    "score-engine": "src/index.mjs"
+  },
+  "scripts": {
+    "selftest": "node src/selftest.mjs"
+  },
+  "dependencies": {
+    "@coderline/alphatab": "file:../web/alphatab-fork.tgz"
+  }
+}

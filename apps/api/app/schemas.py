@@ -81,6 +81,41 @@ class PublicConfig(BaseModel):
     auth_disabled: bool = False
 
 
+# ── Score API (edición programática de partituras, orientada a LLM) ─
+class ScoreOpsRequest(BaseModel):
+    """Lote de operaciones de edición sobre la partitura de un proyecto.
+
+    Cada op es un objeto `{ "op": "<nombre>", ... }`. Ver `GET /api/score/ops`
+    para la lista de operaciones y `docs/SCORE-API.md` para los argumentos.
+    Es atómico: si una op falla, no se persiste nada.
+    """
+
+    ops: list[dict] = []
+    # ETag esperado de la partitura actual (bloqueo optimista). Si se envía y no
+    # coincide con el estado en servidor → 409 Conflict.
+    expected_etag: Optional[str] = None
+    # Metadatos iniciales si el proyecto aún no tiene partitura (se crea una nueva).
+    meta: Optional[dict] = None
+
+
+class ScoreNewRequest(BaseModel):
+    meta: Optional[dict] = None
+    # Si el proyecto ya tiene partitura, sobrescribir requiere force=True.
+    force: bool = False
+
+
+class ScoreReadResponse(BaseModel):
+    has_score: bool
+    etag: Optional[str] = None
+    ir: Optional[dict] = None
+
+
+class ScoreOpsResponse(BaseModel):
+    etag: str
+    ir: dict
+    results: list[dict] = []
+
+
 # ── Carpetas ─────────────────────────────────────────────────────
 class FolderCreate(BaseModel):
     name: str

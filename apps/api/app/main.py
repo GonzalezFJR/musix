@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
 from .database import init_db
-from .routers import admin, auth, contact, folders, instruments, projects, render
+from .routers import admin, auth, contact, folders, instruments, projects, render, score
 from .schemas import PublicConfig
 from .storage import get_storage
 from .storage.caching import CachingStorage
@@ -62,6 +62,7 @@ app.include_router(auth.router)
 app.include_router(contact.router)
 app.include_router(folders.router)
 app.include_router(projects.router)
+app.include_router(score.router)
 app.include_router(render.router)
 app.include_router(instruments.router)
 app.include_router(admin.router)
