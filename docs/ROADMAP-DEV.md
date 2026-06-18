@@ -17,8 +17,9 @@
   worker (`python -m app.audio.worker`, servicio `audio-worker`) y vista **Audio Lab**.
 - ✅ **Fase 3 — Análisis**: engines `librosa` (tempo/tonalidad/espectrograma, verificado)
   y `essentia` (best-effort según wheel). Ver [AUDIO-ENGINES.md](AUDIO-ENGINES.md).
-- ⏳ **Fases 4–6**: separación (demucs/audio-separator), transcripción (Basic Pitch/…),
-  conversión MIDI→Musix.
+- ✅ **Fase 4 — Separación**: engines `demucs` y `audio-separator` (instalación opcional
+  vía `INSTALL_SEPARATION=true`; pesados). Ver [AUDIO-ENGINES.md](AUDIO-ENGINES.md).
+- ⏳ **Fases 5–6**: transcripción (Basic Pitch/…), conversión MIDI→Musix.
 - 🕒 **Fase 7** (diferida): asistente IA.
 
 ## Decisiones tomadas

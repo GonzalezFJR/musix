@@ -23,12 +23,26 @@ Notas:
   depende de la plataforma; en la imagen dev se intenta con `|| true` y si no, el engine
   queda no disponible.
 
-## Separación de pistas (`kind=separation`) — Fase 4 (pendiente)
+## Separación de pistas (`kind=separation`) — Fase 4 ✅ (instalación opcional)
 
-| id | deps | GPU | notas |
-|---|---|---|---|
-| `audio-separator` | `audio-separator` (onnxruntime) | opcional | modelos MDX/UVR; CPU razonable |
-| `demucs` | `demucs` (torch) | recomendable | htdemucs; CPU lento, GPU rápido |
+| id | deps | GPU | salida | estado |
+|---|---|---|---|---|
+| `demucs` | `demucs` (torch) | usa GPU si hay | stems `.wav` (vocals/drums/bass/other) | ⚙️ opcional |
+| `audio-separator` | `audio-separator[cpu]` (onnxruntime) | opcional | stems `.wav` (voz/instrumental) | ⚙️ opcional |
+
+Implementados y registrados, pero **no instalados por defecto** (torch pesa ~GBs). Se
+activan al construir la imagen dev con el build-arg:
+
+```bash
+INSTALL_SEPARATION=true docker compose -f docker-compose.dev.yml build
+# o: docker compose -f docker-compose.dev.yml build --build-arg INSTALL_SEPARATION=true
+```
+
+Sin instalar, aparecen como *no disponibles* en el catálogo. Notas:
+- **demucs**: se invoca por CLI (`python -m demucs`), robusto entre versiones; CPU lento.
+  Param `two_stems` (p. ej. `"vocals"`) para 2 stems; `device` `cpu`/`cuda`.
+- **audio-separator**: modelos MDX/UVR (ONNX), se descargan a caché la primera vez.
+- La UI reproduce los stems de audio automáticamente y permite descargarlos.
 
 ## Transcripción mp3→MIDI (`kind=transcription`) — Fase 5 (pendiente)
 

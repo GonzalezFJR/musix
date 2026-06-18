@@ -41,6 +41,10 @@ services:
       # apps/score-engine y apps/web/alphatab-fork.tgz (sidecar AlphaTab).
       context: .
       dockerfile: apps/api/Dockerfile.dev
+      args:
+        # Engines de separación (Fase 4): pesados (torch). Pon "true" para instalarlos
+        # (demucs + audio-separator). Off por defecto para builds rápidos.
+        INSTALL_SEPARATION: "${INSTALL_SEPARATION:-false}"
     image: musix-api-dev
     restart: unless-stopped
     environment: *api-env

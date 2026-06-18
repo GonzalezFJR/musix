@@ -9,7 +9,9 @@ from __future__ import annotations
 
 from typing import Optional
 
+from .audio_separator_engine import AudioSeparatorEngine
 from .base import Engine
+from .demucs_engine import DemucsEngine
 from .essentia_engine import EssentiaEngine
 from .librosa_engine import LibrosaEngine
 from .probe import ProbeEngine
@@ -19,11 +21,13 @@ def _build_registry() -> dict[str, Engine]:
     # Los engines se instancian siempre (barato); sus dependencias pesadas se
     # importan de forma perezosa en run(). `available()` (vía find_spec) refleja si
     # están instaladas, así que un engine sin deps aparece como "no disponible".
-    # Fases 4–5 (pendientes): demucs, audio-separator, basic-pitch, …
+    # Fase 5 (pendiente): basic-pitch, yourmt3, …
     engines: list[Engine] = [
         ProbeEngine(),
         LibrosaEngine(),
         EssentiaEngine(),
+        DemucsEngine(),
+        AudioSeparatorEngine(),
     ]
     return {e.id: e for e in engines}
 

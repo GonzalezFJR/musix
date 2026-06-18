@@ -60,6 +60,15 @@ RUN pip install yt-dlp
 RUN pip install librosa matplotlib soundfile
 RUN pip install essentia || echo "essentia no disponible en esta plataforma; engine deshabilitado"
 
+# Engines de SEPARACIÓN (Fase 4), opcionales y PESADOS (demucs arrastra torch, ~GBs).
+# Off por defecto para no inflar la imagen. Activar con:
+#   docker compose -f docker-compose.dev.yml build --build-arg INSTALL_SEPARATION=true
+# Sin instalar, los engines aparecen como "no disponible" en el catálogo.
+ARG INSTALL_SEPARATION=false
+RUN if [ "$INSTALL_SEPARATION" = "true" ]; then \
+        pip install demucs "audio-separator[cpu]"; \
+    else echo "separación no instalada (INSTALL_SEPARATION=false)"; fi
+
 RUN mkdir -p /data/files
 
 EXPOSE 8000
