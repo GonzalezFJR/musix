@@ -145,6 +145,18 @@ curl -XPOST .../api/score/$PID/ops -d '{
 }'
 ```
 
+## Importar MIDI → proyecto (Fase 6)
+
+Dos endpoints crean un proyecto Musix a partir de un MIDI, reutilizando esta Score API
+(cuantización a semicorcheas + sidecar AlphaTab):
+
+- `POST /api/projects/from-midi` — multipart con `file` (`.mid/.midi`), `title?`, `folder_id?`.
+- `POST /api/audio/jobs/{id}/to-project` — convierte el `.mid` de un job de transcripción.
+
+La conversión (`app/services/midi_convert.py`) es una v1 pragmática: un tempo y un compás,
+rejilla de semicorcheas, acordes por onset compartido, sin ligaduras. Es un punto de
+partida editable, no una transcripción rítmica exacta.
+
 ## Limitaciones actuales / siguientes pasos
 - La IR cubre el subconjunto común (notas, duraciones, compases, dinámicas, texto,
   acordes, tresillos, tablatura). Articulaciones avanzadas (bends, slides, efectos) aún no

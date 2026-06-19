@@ -2,11 +2,12 @@ import json
 import tempfile
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Response, UploadFile, status
+from fastapi import APIRouter, Form, HTTPException, Response, UploadFile, status
 
 from ..deps import CurrentUser, Repos
 from ..models import Project, utcnow
 from ..schemas import ProjectCreate, ProjectRead, ProjectSummary, ProjectUpdate
+from ..services import midi_convert, score_engine
 from ..storage import get_storage, original_key, project_prefix, score_key
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -95,6 +96,49 @@ def create_project(data: ProjectCreate, user: CurrentUser, repos: Repos) -> Proj
         )
     )
     return ProjectRead(**project.model_dump(), score={})
+
+
+def build_project_from_midi(
+    midi_bytes: bytes, title: str, folder_id: str | None, user, repos
+) -> Project:
+    """Convierte un MIDI en un proyecto Musix nuevo (cuantiza → sidecar → .mu6).
+
+    Reutilizado por POST /projects/from-midi y POST /audio/jobs/{id}/to-project.
+    Lanza HTTPException 400/503 si el sidecar rechaza el resultado o no está disponible.
+    """
+    if folder_id is not None:
+        _validate_folder(folder_id, user.id, repos)
+    spec = midi_convert.midi_to_score(midi_bytes, title=title)
+    try:
+        result = score_engine.apply(None, spec["ops"], spec["meta"])
+    except score_engine.ScoreEngineError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"MIDI no convertible: {exc}") from exc
+    except score_engine.ScoreEngineUnavailable as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, f"score-engine no disponible: {exc}") from exc
+
+    project = repos.projects.create(
+        Project(owner_id=user.id, title=spec["meta"]["title"], folder_id=folder_id, has_score=True)
+    )
+    raw = json.dumps(result["score"], sort_keys=True, separators=(",", ":")).encode()
+    get_storage().put(score_key(user.id, project.id), raw)
+    return project
+
+
+@router.post("/from-midi", response_model=ProjectRead, status_code=status.HTTP_201_CREATED)
+async def create_project_from_midi(
+    user: CurrentUser,
+    repos: Repos,
+    file: UploadFile,
+    title: str = Form(""),
+    folder_id: str | None = Form(None),
+) -> ProjectRead:
+    """Crea un proyecto a partir de un fichero MIDI subido."""
+    ext = Path(file.filename or "").suffix.lower()
+    if ext not in (".mid", ".midi"):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Sube un fichero .mid/.midi")
+    data = await file.read()
+    project = build_project_from_midi(data, title or Path(file.filename or "").stem, folder_id, user, repos)
+    return ProjectRead(**project.model_dump(), score=_load_score(project))
 
 
 @router.get("/{project_id}", response_model=ProjectRead)

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { api, getToken, type AudioEngine, type AudioJob, type AudioKind } from "../lib/api";
 
@@ -58,6 +58,7 @@ function OutputItem({ job, name, kind }: { job: AudioJob; name: string; kind: st
 
 function JobCard({ job, onChanged }: { job: AudioJob; onChanged: () => void }) {
   const [busy, setBusy] = useState(false);
+  const navigate = useNavigate();
   async function run() {
     setBusy(true);
     try { await api.runAudioJob(job.id); onChanged(); } finally { setBusy(false); }
@@ -66,6 +67,14 @@ function JobCard({ job, onChanged }: { job: AudioJob; onChanged: () => void }) {
     setBusy(true);
     try { await api.deleteAudioJob(job.id); onChanged(); } finally { setBusy(false); }
   }
+  async function toProject() {
+    setBusy(true);
+    try {
+      const { project_id } = await api.audioJobToProject(job.id);
+      navigate(`/projects/${project_id}`);
+    } finally { setBusy(false); }
+  }
+  const hasMidi = job.outputs.some((o) => o.kind === "midi" || o.name.endsWith(".mid"));
   return (
     <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-4">
       <div className="flex items-center gap-2">
@@ -97,6 +106,15 @@ function JobCard({ job, onChanged }: { job: AudioJob; onChanged: () => void }) {
           {job.outputs.map((o) => (
             <OutputItem key={o.name} job={job} name={o.name} kind={o.kind} />
           ))}
+          {hasMidi && (
+            <button
+              onClick={toProject}
+              disabled={busy}
+              className="w-full rounded bg-emerald-600 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+            >
+              Convertir a proyecto Musix
+            </button>
+          )}
         </div>
       )}
     </div>

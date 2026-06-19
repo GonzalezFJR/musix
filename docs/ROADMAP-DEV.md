@@ -21,7 +21,9 @@
   vía `INSTALL_SEPARATION=true`; pesados). Ver [AUDIO-ENGINES.md](AUDIO-ENGINES.md).
 - ✅ **Fase 5 — Transcripción**: engine `basic-pitch` (CPU, opcional vía
   `INSTALL_TRANSCRIPTION=true`); pesados (YourMT3/MT3/Omnizart/SheetSage) diferidos a GPU.
-- ⏳ **Fase 6**: conversión MIDI→proyecto Musix.
+- ✅ **Fase 6 — MIDI→Musix**: conversor (mido + cuantización a semicorcheas) →
+  Score API → `.mu6`. Endpoints `POST /api/projects/from-midi` y
+  `POST /api/audio/jobs/{id}/to-project`; botón en Audio Lab.
 - 🕒 **Fase 7** (diferida): asistente IA.
 
 ## Decisiones tomadas

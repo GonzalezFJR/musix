@@ -385,6 +385,10 @@ export const api = {
   deleteAudioJob(id: string) {
     return request<void>(`/audio/jobs/${id}`, { method: "DELETE" });
   },
+  // Convierte el MIDI de un job de transcripción en un proyecto Musix editable.
+  audioJobToProject(id: string) {
+    return request<{ project_id: string; title: string }>(`/audio/jobs/${id}/to-project`, { method: "POST" });
+  },
   // URL de descarga de un artefacto (incluye el token como query no es posible aquí;
   // los artefactos se sirven con auth Bearer vía fetch en el componente).
   audioOutputPath(id: string, name: string) {

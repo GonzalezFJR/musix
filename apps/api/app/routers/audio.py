@@ -131,6 +131,24 @@ def download_output(job_id: str, name: str, user: CurrentUser, repos: Repos) -> 
     )
 
 
+@router.post("/jobs/{job_id}/to-project", status_code=status.HTTP_201_CREATED)
+def to_project(job_id: str, user: CurrentUser, repos: Repos) -> dict:
+    """Convierte el MIDI de un job de transcripción en un proyecto Musix editable."""
+    from .projects import build_project_from_midi
+
+    job = _owned(job_id, user.id, repos)
+    midi = next((o for o in job.outputs if o.get("kind") == "midi" or o["name"].endswith((".mid", ".midi"))), None)
+    if midi is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "El job no tiene un MIDI de salida")
+    try:
+        data = get_storage().get(midi["key"])
+    except FileNotFoundError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "MIDI no encontrado en el almacenamiento")
+    title = f"{job.engine} · {job.input_filename or 'transcripción'}"
+    project = build_project_from_midi(data, title, None, user, repos)
+    return {"project_id": project.id, "title": project.title}
+
+
 @router.delete("/jobs/{job_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_job(job_id: str, user: CurrentUser, repos: Repos) -> None:
     job = _owned(job_id, user.id, repos)
