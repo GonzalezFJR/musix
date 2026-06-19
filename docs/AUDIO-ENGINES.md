@@ -44,12 +44,38 @@ Sin instalar, aparecen como *no disponibles* en el catálogo. Notas:
 - **audio-separator**: modelos MDX/UVR (ONNX), se descargan a caché la primera vez.
 - La UI reproduce los stems de audio automáticamente y permite descargarlos.
 
-## Transcripción mp3→MIDI (`kind=transcription`) — Fase 5 (pendiente)
+## Transcripción mp3→MIDI (`kind=transcription`) — Fase 5 ✅ (Basic Pitch; resto diferido)
 
-| id | deps | GPU | notas |
-|---|---|---|---|
-| `basic-pitch` | `basic-pitch` (tf/onnx) | no | polifónico genérico, CPU-friendly (referencia) |
-| `yourmt3` / `mt3` / `omnizart` / `sheetsage` | varias (delicadas) | sí | contenedores aislados, diferidos a disponibilidad de GPU |
+| id | deps | GPU | salida | estado |
+|---|---|---|---|---|
+| `basic-pitch` | `basic-pitch` + `onnxruntime` | no | `transcription.mid` | ⚙️ opcional (CPU, referencia) |
+| `yourmt3` / `mt3` / `omnizart` / `sheetsage` | varias (delicadas) | sí | `.mid` | 🕒 diferido (contenedores GPU) |
+
+**Basic Pitch** (Spotify): polifónico genérico, CPU-friendly (backend ONNX). Implementado
+y registrado; instalación opcional vía build-arg:
+
+```bash
+INSTALL_TRANSCRIPTION=true docker compose -f docker-compose.dev.yml build
+```
+
+Params: `onset_threshold`, `frame_threshold`, `minimum_note_length`, `minimum_frequency`,
+`maximum_frequency`, `melodia_trick`. El `.mid` resultante se descarga desde la UI y, en
+la Fase 6, podrá convertirse en un proyecto Musix editable.
+
+> ⚠️ **Caveat de instalación**: basic-pitch fija versiones antiguas de numpy/TF y su
+> instalación puede fallar en **Python 3.12** (la imagen dev). Por eso el build-arg es
+> tolerante (si falla, el engine queda "no disponible"). Para usarlo de forma fiable:
+> backend ONNX (`basic-pitch[onnx]`) o un worker con **Python 3.11**. Validado por
+> construcción + gating; el run real de transcripción se confirma en ese entorno.
+
+### Engines pesados (diferidos a GPU)
+
+`YourMT3`, `MT3`, `Omnizart` y `SheetSage` ofrecen transcripción de mayor calidad pero
+tienen **dependencias delicadas** (MT3/Omnizart son TF1-era; YourMT3 es torch; SheetSage
+trae su propio stack) y rinden bien **solo con GPU**. Plan: cada uno como **contenedor
+aislado** que expone la misma interfaz de engine (audio→`.mid`) y se registra como engine
+remoto cuando haya GPU disponible (cloud o máquina dedicada). No se instalan en la imagen
+dev CPU. Se abordarán cuando se disponga de GPU (ver [ROADMAP-DEV.md](ROADMAP-DEV.md)).
 
 ## Cómo añadir un engine
 

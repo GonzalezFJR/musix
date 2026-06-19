@@ -69,6 +69,19 @@ RUN if [ "$INSTALL_SEPARATION" = "true" ]; then \
         pip install demucs "audio-separator[cpu]"; \
     else echo "separación no instalada (INSTALL_SEPARATION=false)"; fi
 
+# Engines de TRANSCRIPCIÓN mp3→MIDI (Fase 5), opcionales. Basic Pitch (CPU) con
+# backend ONNX. Activar con:
+#   docker compose -f docker-compose.dev.yml build --build-arg INSTALL_TRANSCRIPTION=true
+# NOTA: basic-pitch fija versiones antiguas de numpy/TF y su instalación puede
+# fallar en Python 3.12 (intenta compilar numpy). Por eso es tolerante: si falla,
+# el engine queda "no disponible" en vez de romper la imagen. Para usarlo de forma
+# fiable, un worker con Python 3.11 o el backend ONNX (ver docs/AUDIO-ENGINES.md).
+ARG INSTALL_TRANSCRIPTION=false
+RUN if [ "$INSTALL_TRANSCRIPTION" = "true" ]; then \
+        pip install "basic-pitch[onnx]" onnxruntime \
+        || echo "basic-pitch no instalable en esta plataforma; engine deshabilitado"; \
+    else echo "transcripción no instalada (INSTALL_TRANSCRIPTION=false)"; fi
+
 RUN mkdir -p /data/files
 
 EXPOSE 8000

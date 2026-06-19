@@ -19,7 +19,9 @@
   y `essentia` (best-effort según wheel). Ver [AUDIO-ENGINES.md](AUDIO-ENGINES.md).
 - ✅ **Fase 4 — Separación**: engines `demucs` y `audio-separator` (instalación opcional
   vía `INSTALL_SEPARATION=true`; pesados). Ver [AUDIO-ENGINES.md](AUDIO-ENGINES.md).
-- ⏳ **Fases 5–6**: transcripción (Basic Pitch/…), conversión MIDI→Musix.
+- ✅ **Fase 5 — Transcripción**: engine `basic-pitch` (CPU, opcional vía
+  `INSTALL_TRANSCRIPTION=true`); pesados (YourMT3/MT3/Omnizart/SheetSage) diferidos a GPU.
+- ⏳ **Fase 6**: conversión MIDI→proyecto Musix.
 - 🕒 **Fase 7** (diferida): asistente IA.
 
 ## Decisiones tomadas

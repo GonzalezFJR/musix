@@ -11,6 +11,7 @@ from typing import Optional
 
 from .audio_separator_engine import AudioSeparatorEngine
 from .base import Engine
+from .basic_pitch_engine import BasicPitchEngine
 from .demucs_engine import DemucsEngine
 from .essentia_engine import EssentiaEngine
 from .librosa_engine import LibrosaEngine
@@ -21,13 +22,15 @@ def _build_registry() -> dict[str, Engine]:
     # Los engines se instancian siempre (barato); sus dependencias pesadas se
     # importan de forma perezosa en run(). `available()` (vía find_spec) refleja si
     # están instaladas, así que un engine sin deps aparece como "no disponible".
-    # Fase 5 (pendiente): basic-pitch, yourmt3, …
+    # Pesados/GPU (YourMT3, MT3, Omnizart, SheetSage): contenedores aislados,
+    # diferidos a disponibilidad de GPU (ver docs/AUDIO-ENGINES.md).
     engines: list[Engine] = [
         ProbeEngine(),
         LibrosaEngine(),
         EssentiaEngine(),
         DemucsEngine(),
         AudioSeparatorEngine(),
+        BasicPitchEngine(),
     ]
     return {e.id: e for e in engines}
 

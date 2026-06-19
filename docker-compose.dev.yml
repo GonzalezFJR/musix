@@ -45,6 +45,8 @@ services:
         # Engines de separación (Fase 4): pesados (torch). Pon "true" para instalarlos
         # (demucs + audio-separator). Off por defecto para builds rápidos.
         INSTALL_SEPARATION: "${INSTALL_SEPARATION:-false}"
+        # Engines de transcripción mp3→MIDI (Fase 5): Basic Pitch (CPU, ONNX).
+        INSTALL_TRANSCRIPTION: "${INSTALL_TRANSCRIPTION:-false}"
     image: musix-api-dev
     restart: unless-stopped
     environment: *api-env
